@@ -611,14 +611,49 @@
   <div class="sheet-sub">How much time to add?</div>
   <div class="time-chips">
     <div class="time-chip blue" onclick="addTime(30)">+30 min</div>
-    <div class="time-chip blue" onclick="addTime(60)">+1 hour</div>
+    <div class="time-chip blue" onclick="addTime(60)">+1 hr</div>
     <div class="time-chip blue" onclick="addTime(90)">+1.5 hrs</div>
-    <div class="time-chip blue" onclick="addTime(120)">+2 hours</div>
+    <div class="time-chip blue" onclick="addTime(120)">+2 hrs</div>
+    <div class="time-chip blue" onclick="addTime(180)">+3 hrs</div>
+    <div class="time-chip blue" onclick="addTime(300)">+5 hrs</div>
   </div>
-  <div class="field"><label>Custom Minutes</label></div>
-  <div class="custom-row" style="padding-bottom:24px">
-    <input type="number" id="custom-add-mins" placeholder="e.g. 20" min="1" max="600">
-    <button class="btn btn-blue" style="width:auto;padding:14px 20px" onclick="addCustomTime()">Add</button>
+  <div style="color:var(--muted);font-size:12px;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Custom:</div>
+  <div style="display:flex;gap:8px;margin-bottom:24px;align-items:center">
+    <input type="number" id="custom-add-hrs" placeholder="hrs" min="0" max="24"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+      padding:14px 12px;font-size:16px;color:var(--text);font-family:Syne,sans-serif;outline:none;">
+    <span style="color:var(--muted);font-size:18px;font-weight:700">:</span>
+    <input type="number" id="custom-add-mins" placeholder="min" min="0" max="59"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+      padding:14px 12px;font-size:16px;color:var(--text);font-family:Syne,sans-serif;outline:none;">
+    <button class="btn btn-blue" style="width:auto;padding:14px 20px;flex-shrink:0" onclick="addCustomTime()">Add</button>
+  </div>
+</div>
+
+<!-- Remove Time -->
+<div class="sheet-overlay" id="overlay-removetime" onclick="closeSheet('sheet-removetime')"></div>
+<div class="sheet" id="sheet-removetime">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" style="color:var(--orange)">Remove Time</div>
+  <div class="sheet-sub">How much time to remove?</div>
+  <div class="time-chips">
+    <div class="time-chip" onclick="removeTime(15)" style="background:rgba(255,140,0,.1);border-color:rgba(255,140,0,.3);color:var(--orange)">-15 min</div>
+    <div class="time-chip" onclick="removeTime(30)" style="background:rgba(255,140,0,.1);border-color:rgba(255,140,0,.3);color:var(--orange)">-30 min</div>
+    <div class="time-chip" onclick="removeTime(60)" style="background:rgba(255,140,0,.1);border-color:rgba(255,140,0,.3);color:var(--orange)">-1 hr</div>
+    <div class="time-chip" onclick="removeTime(120)" style="background:rgba(255,140,0,.1);border-color:rgba(255,140,0,.3);color:var(--orange)">-2 hrs</div>
+  </div>
+  <div style="color:var(--muted);font-size:12px;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Custom:</div>
+  <div style="display:flex;gap:8px;margin-bottom:24px;align-items:center">
+    <input type="number" id="custom-remove-hrs" placeholder="hrs" min="0" max="24"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+      padding:14px 12px;font-size:16px;color:var(--text);font-family:Syne,sans-serif;outline:none;">
+    <span style="color:var(--muted);font-size:18px;font-weight:700">:</span>
+    <input type="number" id="custom-remove-mins" placeholder="min" min="0" max="59"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+      padding:14px 12px;font-size:16px;color:var(--text);font-family:Syne,sans-serif;outline:none;">
+    <button style="flex-shrink:0;background:var(--orange);color:#000;border:none;border-radius:12px;
+      padding:14px 20px;font-size:15px;font-weight:700;cursor:pointer;font-family:Syne,sans-serif"
+      onclick="removeCustomTime()">Remove</button>
   </div>
 </div>
 
@@ -1020,7 +1055,12 @@ function renderSessionActions() {
           <div class="action-label" style="color:var(--blue)">Add Time</div>
           <div class="action-sub">Extend session</div>
         </div>
-        <div class="action-tile" onclick="confirmEndSession()" style="border-color:rgba(255,51,85,.2);background:rgba(255,51,85,.06)">
+        <div class="action-tile" onclick="openSheet('sheet-removetime')" style="border-color:rgba(255,140,0,.2);background:rgba(255,140,0,.06)">
+          <div class="action-icon">⏳</div>
+          <div class="action-label" style="color:var(--orange)">Remove Time</div>
+          <div class="action-sub">Reduce session</div>
+        </div>
+        <div class="action-tile full" onclick="confirmEndSession()" style="border-color:rgba(255,51,85,.2);background:rgba(255,51,85,.06)">
           <div class="action-icon">⏹</div>
           <div class="action-label" style="color:var(--red)">End Session</div>
           <div class="action-sub">Lock immediately</div>
@@ -1064,6 +1104,27 @@ async function stopStopwatch() {
   } catch(e) { toast(e.message, 'red'); }
 }
 
+async function removeTime(mins) {
+  closeSheet('sheet-removetime');
+  try {
+    const r = await api('POST', '/pcs/' + state.activePc.id + '/session/add-time', {
+      minutes: -mins, group_id: state.activeGroup.id
+    });
+    updatePcTime(state.activePc.id, r.session_end);
+    toast(`-${mins < 60 ? mins + ' min' : (mins/60) + ' hr'} removed ✓`, 'green');
+  } catch(e) { toast(e.message, 'red'); }
+}
+
+function removeCustomTime() {
+  const hrs  = parseInt(document.getElementById('custom-remove-hrs').value) || 0;
+  const mins = parseInt(document.getElementById('custom-remove-mins').value) || 0;
+  const total = hrs * 60 + mins;
+  if (total < 1) return toast('Enter hours and/or minutes', 'red');
+  document.getElementById('custom-remove-hrs').value = '';
+  document.getElementById('custom-remove-mins').value = '';
+  removeTime(total);
+}
+
 async function addTime(mins) {
   closeSheet('sheet-addtime');
   try {
@@ -1073,10 +1134,13 @@ async function addTime(mins) {
   } catch(e) { toast(e.message, 'red'); }
 }
 function addCustomTime() {
-  const m = parseInt(document.getElementById('custom-add-mins').value);
-  if (!m || m < 1) return toast('Enter valid minutes', 'red');
+  const hrs  = parseInt(document.getElementById('custom-add-hrs').value) || 0;
+  const mins = parseInt(document.getElementById('custom-add-mins').value) || 0;
+  const total = hrs * 60 + mins;
+  if (total < 1) return toast('Enter hours and/or minutes', 'red');
+  document.getElementById('custom-add-hrs').value = '';
   document.getElementById('custom-add-mins').value = '';
-  addTime(m);
+  addTime(total);
 }
 
 function confirmEndSession() {
