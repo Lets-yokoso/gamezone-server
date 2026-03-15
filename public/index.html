@@ -583,14 +583,23 @@
   </div>
   <div style="margin-bottom:16px">
     <div style="color:var(--muted);font-size:12px;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Or open-ended:</div>
-    <div class="time-chip" onclick="startStopwatch()" style="background:rgba(68,136,255,.1);border-color:rgba(68,136,255,.3);color:var(--blue);width:100%;text-align:center;display:block">
-      ⏱ Free Timer — counts up, no time limit
+    <div onclick="startStopwatch()" style="background:rgba(255,140,0,.12);border:2px solid rgba(255,140,0,.4);
+      color:#ff8c00;width:100%;text-align:center;display:block;border-radius:14px;
+      padding:16px;font-size:16px;font-weight:700;cursor:pointer;font-family:Syne,sans-serif;
+      letter-spacing:.3px">
+      ⏱ &nbsp; Free Timer &nbsp;—&nbsp; no time limit, counts up
     </div>
   </div>
-  <div class="field"><label>Custom Duration (minutes)</label></div>
-  <div class="custom-row" style="padding-bottom:24px">
-    <input type="number" id="custom-start-mins" placeholder="e.g. 45" min="1" max="600">
-    <button class="btn btn-green" style="width:auto;padding:14px 20px" onclick="startCustomSession()">Start</button>
+  <div style="color:var(--muted);font-size:12px;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Custom duration:</div>
+  <div style="display:flex;gap:8px;margin-bottom:24px;align-items:center">
+    <input type="number" id="custom-start-hrs" placeholder="hrs" min="0" max="24"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+      padding:14px 12px;font-size:16px;color:var(--text);font-family:Syne,sans-serif;outline:none;">
+    <span style="color:var(--muted);font-size:18px;font-weight:700">:</span>
+    <input type="number" id="custom-start-mins" placeholder="min" min="0" max="59"
+      style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+      padding:14px 12px;font-size:16px;color:var(--text);font-family:Syne,sans-serif;outline:none;">
+    <button class="btn btn-green" style="width:auto;padding:14px 20px;flex-shrink:0" onclick="startCustomSession()">Start</button>
   </div>
 </div>
 
@@ -601,10 +610,10 @@
   <div class="sheet-title">Add Time</div>
   <div class="sheet-sub">How much time to add?</div>
   <div class="time-chips">
-    <div class="time-chip blue" onclick="addTime(10)">+10 min</div>
-    <div class="time-chip blue" onclick="addTime(15)">+15 min</div>
     <div class="time-chip blue" onclick="addTime(30)">+30 min</div>
     <div class="time-chip blue" onclick="addTime(60)">+1 hour</div>
+    <div class="time-chip blue" onclick="addTime(90)">+1.5 hrs</div>
+    <div class="time-chip blue" onclick="addTime(120)">+2 hours</div>
   </div>
   <div class="field"><label>Custom Minutes</label></div>
   <div class="custom-row" style="padding-bottom:24px">
@@ -1029,10 +1038,13 @@ async function startSession(mins) {
   } catch(e) { toast(e.message, 'red'); }
 }
 function startCustomSession() {
-  const m = parseInt(document.getElementById('custom-start-mins').value);
-  if (!m || m < 1) return toast('Enter valid minutes', 'red');
+  const hrs = parseInt(document.getElementById('custom-start-hrs').value) || 0;
+  const mins = parseInt(document.getElementById('custom-start-mins').value) || 0;
+  const total = hrs * 60 + mins;
+  if (total < 1) return toast('Enter hours and/or minutes', 'red');
+  document.getElementById('custom-start-hrs').value = '';
   document.getElementById('custom-start-mins').value = '';
-  startSession(m);
+  startSession(total);
 }
 
 async function startStopwatch() {
