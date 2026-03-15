@@ -224,6 +224,7 @@ app.post('/api/pcs/:pcId/session/stopwatch-end', authMiddleware, async (req, res
     if (!await canManageGroup(req.user.id, group_id)) return res.status(403).json({ error: 'Forbidden' });
     await db.update('pcs', p => p.id === pcId, { stopwatch_start: 0 });
     io.to(`pc:${pcId}`).emit('session:stopwatch-end', {});
+    io.to(`pc:${pcId}`).emit('command:lock', {});
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
