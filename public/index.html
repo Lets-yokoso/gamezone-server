@@ -465,7 +465,6 @@
       <button class="back-btn" onclick="goBack('dashboard')">‹ Back</button>
       <div id="pc-control-name" class="topbar-title">PC Control</div>
       <div id="pc-online-pill" class="online-pill"></div>
-      <div id="pc-payment-pill" onclick="togglePayment(state.activePc?.id)" style="cursor:pointer"></div>
     </div>
     <div class="scroll-content">
       <div class="timer-hero" id="timer-hero">
@@ -475,33 +474,6 @@
       </div>
 
       <div id="session-actions"></div>
-
-      <div class="section-label" style="margin-top:4px">PAYMENT</div>
-      <div class="action-grid" id="payment-section" style="margin-bottom:8px">
-        <div class="action-tile full" id="payment-btn" onclick="togglePayment()">
-          <div class="action-icon" id="payment-icon">💰</div>
-          <div class="action-label" id="payment-label">Mark as Paid</div>
-          <div class="action-sub" id="payment-sub">Customer has not paid yet</div>
-        </div>
-      </div>
-
-      <div class="section-label">PAYMENT</div>
-      <div class="action-grid" style="margin-bottom:8px" id="payment-grid">
-      </div>
-
-      <div class="section-label" style="margin-top:4px">PAYMENT</div>
-      <div class="action-grid" style="margin-bottom:8px">
-        <div class="action-tile" onclick="setPayment('paid')" style="border-color:rgba(0,255,135,.2);background:rgba(0,255,135,.06)">
-          <div class="action-icon">✅</div>
-          <div class="action-label" style="color:var(--green)">Mark Paid</div>
-          <div id="payment-paid-check" class="action-sub"></div>
-        </div>
-        <div class="action-tile" onclick="setPayment('unpaid')" style="border-color:rgba(255,51,85,.2);background:rgba(255,51,85,.06)">
-          <div class="action-icon">❌</div>
-          <div class="action-label" style="color:var(--red)">Mark Unpaid</div>
-          <div id="payment-unpaid-check" class="action-sub"></div>
-        </div>
-      </div>
 
       <div class="section-label">SCREEN CONTROL</div>
       <div class="action-grid" style="margin-bottom:8px">
@@ -602,16 +574,6 @@
   <div class="sheet-handle"></div>
   <div class="sheet-title">Start Session</div>
   <div class="sheet-sub">How long should this session be?</div>
-  <div id="add-to-existing-row" style="display:none;margin-bottom:14px;padding:12px 14px;
-    background:rgba(68,136,255,.08);border:1px solid rgba(68,136,255,.2);border-radius:12px">
-    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:600;color:var(--blue)">
-      <input type="checkbox" id="add-to-existing" style="width:18px;height:18px;cursor:pointer">
-      Add to existing time (PC transfer)
-    </label>
-    <div style="font-size:12px;color:var(--muted);margin-top:6px;margin-left:28px">
-      Time will be added on top of remaining time instead of replacing it
-    </div>
-  </div>
   <div class="time-chips">
     <div class="time-chip" onclick="startSession(30)">30 min</div>
     <div class="time-chip" onclick="startSession(60)">1 hour</div>
@@ -695,27 +657,6 @@
   </div>
 </div>
 
-<!-- Transfer Time -->
-<div class="sheet-overlay" id="overlay-transfer" onclick="closeSheet('sheet-transfer')"></div>
-<div class="sheet" id="sheet-transfer">
-  <div class="sheet-handle"></div>
-  <div class="sheet-title" style="color:#a064ff">🔄 Transfer Time</div>
-  <div class="sheet-sub">Move remaining time to another PC in this group</div>
-  <div id="transfer-pc-list" style="margin-bottom:24px"></div>
-  <button class="btn btn-outline" onclick="closeSheet('sheet-transfer')">Cancel</button>
-</div>
-
-<!-- Transfer Time -->
-<div class="sheet-overlay" id="overlay-transfer" onclick="closeSheet('sheet-transfer')"></div>
-<div class="sheet" id="sheet-transfer">
-  <div class="sheet-handle"></div>
-  <div class="sheet-title" style="color:#9664ff">Transfer Time</div>
-  <div class="sheet-sub" id="transfer-sub">Move remaining time from this PC to another</div>
-  <div style="color:var(--muted);font-size:12px;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase">Select destination PC:</div>
-  <div id="transfer-pc-list" style="max-height:300px;overflow-y:auto;margin-bottom:20px"></div>
-  <button class="btn btn-outline" onclick="closeSheet('sheet-transfer')">Cancel</button>
-</div>
-
 <!-- Apps -->
 <div class="sheet-overlay" id="overlay-apps" onclick="closeSheet('sheet-apps')"></div>
 <div class="sheet" id="sheet-apps">
@@ -723,32 +664,6 @@
   <div class="sheet-title">Launch App</div>
   <div class="sheet-sub" id="apps-pc-name"></div>
   <div id="apps-list"><div style="text-align:center;padding:30px"><span class="spinner light"></span></div></div>
-</div>
-
-<!-- Payment Status -->
-<div class="sheet-overlay" id="overlay-payment" onclick="closeSheet('sheet-payment')"></div>
-<div class="sheet" id="sheet-payment">
-  <div class="sheet-handle"></div>
-  <div class="sheet-title">Payment Status</div>
-  <div class="sheet-sub" id="payment-pc-label">Mark payment for this PC</div>
-  <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
-    <button onclick="setPayment('unpaid')" style="padding:18px;border-radius:14px;border:2px solid rgba(255,51,85,.3);
-      background:rgba(255,51,85,.08);color:#ff3355;font-size:17px;font-weight:700;cursor:pointer;font-family:Syne,sans-serif">
-      ❌ Unpaid — Customer has NOT paid
-    </button>
-    <button onclick="setPayment('prepaid')" style="padding:18px;border-radius:14px;border:2px solid rgba(0,255,135,.3);
-      background:rgba(0,255,135,.08);color:var(--green);font-size:17px;font-weight:700;cursor:pointer;font-family:Syne,sans-serif">
-      ✅ Prepaid — Customer paid before session
-    </button>
-    <button onclick="setPayment('postpaid')" style="padding:18px;border-radius:14px;border:2px solid rgba(68,136,255,.3);
-      background:rgba(68,136,255,.08);color:var(--blue);font-size:17px;font-weight:700;cursor:pointer;font-family:Syne,sans-serif">
-      💳 Pay Later — Customer will pay after
-    </button>
-    <button onclick="setPayment('none')" style="padding:14px;border-radius:14px;border:1px solid var(--border);
-      background:transparent;color:var(--muted);font-size:14px;cursor:pointer;font-family:Syne,sans-serif">
-      Clear status
-    </button>
-  </div>
 </div>
 
 <!-- Add Admin -->
@@ -1023,8 +938,6 @@ function renderPCs() {
     const elapsed = isWatch ? Math.floor(Date.now()/1000) - pc.stopwatch_start : 0;
     const timer = !pc.is_online ? '···' : left > 0 ? fmtTime(left) : isWatch ? fmtTime(elapsed) : '—';
     const color2 = isWatch ? 'var(--blue)' : color;
-    const payColor = pc.payment === 'paid' ? 'var(--green)' : pc.payment === 'unpaid' ? 'var(--red)' : 'var(--muted)';
-    const payLabel = pc.payment === 'paid' ? '✓ Paid' : pc.payment === 'unpaid' ? '✗ Unpaid' : '';
     return `
     <div class="pc-tile" style="border-color:${color}22">
       <div class="pc-tile-header" onclick="openPC('${pc.id}')">
@@ -1034,7 +947,6 @@ function renderPCs() {
       <div class="pc-timer" style="color:${color}" onclick="openPC('${pc.id}')">${timer}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
         <span class="pc-status-badge" style="background:${color}18;color:${color}">${status}</span>
-        ${payLabel ? `<span style="font-size:11px;font-weight:700;color:${payColor}">${payLabel}</span>` : ''}
         <button onclick="event.stopPropagation();confirmDeletePC('${pc.id}','${pc.name}')"
           style="background:rgba(255,51,85,.1);border:1px solid rgba(255,51,85,.2);color:var(--red);
           border-radius:8px;padding:4px 9px;font-size:13px;cursor:pointer;font-family:Syne,sans-serif;line-height:1">🗑</button>
@@ -1077,15 +989,11 @@ async function addPC() {
 function openPC(id) {
   state.activePc = state.pcs.find(p => p.id === id);
   document.getElementById('pc-control-name').textContent = state.activePc.name;
-  setTimeout(renderPaymentStatus, 100);
+  // Online pill
   const pill = document.getElementById('pc-online-pill');
   const online = state.activePc.is_online;
   pill.innerHTML = `<span class="dot" style="background:${online?'var(--green)':'var(--muted)'}"></span>${online?'Online':'Offline'}`;
   pill.style.cssText = `background:${online?'rgba(0,255,135,.1)':'rgba(102,102,170,.1)'};color:${online?'var(--green)':'var(--muted)'};border:1px solid ${online?'rgba(0,255,135,.2)':'rgba(102,102,170,.2)'}`;
-  const ppill = document.getElementById('pc-payment-pill');
-  const paid = state.activePc.paid;
-  ppill.innerHTML = paid ? '✅ PAID' : '⚠️ UNPAID';
-  ppill.style.cssText = `font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:${paid?'rgba(0,255,135,.1)':'rgba(255,140,0,.1)'};color:${paid?'var(--green)':'var(--orange)'};border:1px solid ${paid?'rgba(0,255,135,.2)':'rgba(255,140,0,.2)'}`;
   renderSessionActions();
   renderHeroTimer();
   showScreen('pccontrol');
@@ -1130,20 +1038,15 @@ function renderSessionActions() {
     <div class="section-label">SESSION</div>
     <div class="action-grid">
       ${!active && !isStopwatch ? `
-        <div class="action-tile full" onclick="openStartSession()" style="border-color:rgba(0,255,135,.2);background:rgba(0,255,135,.06)">
+        <div class="action-tile full" onclick="openSheet('sheet-startsession')" style="border-color:rgba(0,255,135,.2);background:rgba(0,255,135,.06)">
           <div class="action-icon">▶</div>
           <div class="action-label" style="color:var(--green)">Start Session</div>
           <div class="action-sub">Choose duration</div>
         </div>
       ` : isStopwatch ? `
-        <div class="action-tile" onclick="openSheet('sheet-addtime')" style="border-color:rgba(68,136,255,.2);background:rgba(68,136,255,.06)">
-          <div class="action-icon">⏱</div>
-          <div class="action-label" style="color:var(--blue)">Add Time</div>
-          <div class="action-sub">Convert to countdown</div>
-        </div>
-        <div class="action-tile" onclick="stopStopwatch()" style="border-color:rgba(255,51,85,.2);background:rgba(255,51,85,.06)">
+        <div class="action-tile full" onclick="stopStopwatch()" style="border-color:rgba(255,51,85,.2);background:rgba(255,51,85,.06)">
           <div class="action-icon">⏹</div>
-          <div class="action-label" style="color:var(--red)">Stop Timer</div>
+          <div class="action-label" style="color:var(--red)">Stop Free Timer</div>
           <div class="action-sub">End open session</div>
         </div>
       ` : `
@@ -1157,17 +1060,7 @@ function renderSessionActions() {
           <div class="action-label" style="color:var(--orange)">Remove Time</div>
           <div class="action-sub">Reduce session</div>
         </div>
-        <div class="action-tile full" onclick="openSheet('sheet-transfer')" style="border-color:rgba(150,100,255,.2);background:rgba(150,100,255,.06)">
-          <div class="action-icon">🔄</div>
-          <div class="action-label" style="color:#9664ff">Transfer Time</div>
-          <div class="action-sub">Move remaining time to another PC</div>
-        </div>
-        <div class="action-tile" onclick="openTransferSheet()" style="border-color:rgba(160,100,255,.2);background:rgba(160,100,255,.06)">
-          <div class="action-icon">🔄</div>
-          <div class="action-label" style="color:#a064ff">Transfer Time</div>
-          <div class="action-sub">Move to another PC</div>
-        </div>
-        <div class="action-tile" onclick="confirmEndSession()" style="border-color:rgba(255,51,85,.2);background:rgba(255,51,85,.06)">
+        <div class="action-tile full" onclick="confirmEndSession()" style="border-color:rgba(255,51,85,.2);background:rgba(255,51,85,.06)">
           <div class="action-icon">⏹</div>
           <div class="action-label" style="color:var(--red)">End Session</div>
           <div class="action-sub">Lock immediately</div>
@@ -1178,20 +1071,10 @@ function renderSessionActions() {
 
 async function startSession(mins) {
   closeSheet('sheet-startsession');
-  const addToExisting = document.getElementById('add-to-existing')?.checked;
   try {
-    if (addToExisting) {
-      // Transfer mode — add time on top of existing
-      const r = await api('POST', '/pcs/' + state.activePc.id + '/session/add-time', {
-        minutes: mins, group_id: state.activeGroup.id
-      });
-      updatePcTime(state.activePc.id, r.session_end);
-      toast(`+${mins < 60 ? mins + 'min' : (mins/60) + 'hr'} added (transfer) ✓`, 'green');
-    } else {
-      const r = await api('POST', '/pcs/' + state.activePc.id + '/session/start', { duration_minutes: mins, group_id: state.activeGroup.id });
-      updatePcTime(state.activePc.id, r.session_end);
-      toast('Session started ✓', 'green');
-    }
+    const r = await api('POST', '/pcs/' + state.activePc.id + '/session/start', { duration_minutes: mins, group_id: state.activeGroup.id });
+    updatePcTime(state.activePc.id, r.session_end);
+    toast('Session started ✓', 'green');
   } catch(e) { toast(e.message, 'red'); }
 }
 function startCustomSession() {
@@ -1202,16 +1085,6 @@ function startCustomSession() {
   document.getElementById('custom-start-hrs').value = '';
   document.getElementById('custom-start-mins').value = '';
   startSession(total);
-}
-
-function openStartSession() {
-  const pc = state.activePc;
-  const now = Math.floor(Date.now() / 1000);
-  const active = pc && pc.session_end > now;
-  // Show transfer checkbox only if session is active
-  document.getElementById('add-to-existing-row').style.display = active ? '' : 'none';
-  if (!active) document.getElementById('add-to-existing').checked = false;
-  openSheet('sheet-startsession');
 }
 
 async function startStopwatch() {
@@ -1299,33 +1172,6 @@ function updatePcTime(pcId, sessionEnd, stopwatchStart = 0) {
 // ════════════════════════════════════════════════════════
 // APPS
 // ════════════════════════════════════════════════════════
-// ── Payment tracking ─────────────────────────────────────────────────────────
-function setPayment(status) {
-  if (!state.activePc) return;
-  const pc = state.pcs.find(p => p.id === state.activePc.id);
-  if (pc) {
-    pc.payment = pc.payment === status ? null : status;  // toggle
-    state.activePc.payment = pc.payment;
-  }
-  // Update payment indicators
-  const paidCheck   = document.getElementById('payment-paid-check');
-  const unpaidCheck = document.getElementById('payment-unpaid-check');
-  const current = state.activePc.payment;
-  if (paidCheck)   paidCheck.textContent   = current === 'paid'   ? '● Active' : '';
-  if (unpaidCheck) unpaidCheck.textContent = current === 'unpaid' ? '● Active' : '';
-  renderPCs();
-  toast(current === status ? `Marked as ${status} ✓` : 'Payment cleared', 'green');
-}
-
-function renderPaymentStatus() {
-  const pc = state.activePc;
-  if (!pc) return;
-  const paidCheck   = document.getElementById('payment-paid-check');
-  const unpaidCheck = document.getElementById('payment-unpaid-check');
-  if (paidCheck)   paidCheck.textContent   = pc.payment === 'paid'   ? '● Active' : '';
-  if (unpaidCheck) unpaidCheck.textContent = pc.payment === 'unpaid' ? '● Active' : '';
-}
-
 async function openApps() {
   document.getElementById('apps-pc-name').textContent = 'on ' + state.activePc.name;
   document.getElementById('apps-list').innerHTML = '<div style="text-align:center;padding:30px"><span class="spinner light"></span></div>';
@@ -1490,19 +1336,6 @@ function dismissInstall() {
 // ════════════════════════════════════════════════════════
 // DELETE GROUP & DELETE PC
 // ════════════════════════════════════════════════════════
-// Payment toggle
-async function togglePayment(pcId) {
-  const pc = state.pcs.find(p => p.id === pcId);
-  if (!pc) return;
-  try {
-    await api('POST', '/pcs/' + pcId + '/payment', { paid: !pc.paid, group_id: state.activeGroup.id });
-    pc.paid = !pc.paid;
-    if (state.activePc && state.activePc.id === pcId) state.activePc.paid = pc.paid;
-    renderPCs();
-    toast(pc.paid ? '✅ Marked as PAID' : '⚠️ Marked as UNPAID', pc.paid ? 'green' : 'red');
-  } catch(e) { toast(e.message, 'red'); }
-}
-
 function confirmDeleteGroup(id, name) {
   if (!confirm(`Delete "${name}"?\n\nThis will permanently remove the group and ALL its PCs. This cannot be undone.`)) return;
   api('DELETE', '/groups/' + id)
@@ -1534,219 +1367,6 @@ function renderSettingsDeleteBtn() {
     confirmDeleteGroup(state.activeGroup.id, state.activeGroup.name);
   };
 }
-
-// ── Payment tracking (per PC, in memory) ──────────────────────────────────
-const _paymentStatus = {};   // pcId → true/false
-
-function togglePayment() {
-  const pc = state.activePc;
-  if (!pc) return;
-  const paid = !_paymentStatus[pc.id];
-  _paymentStatus[pc.id] = paid;
-  _renderPaymentBtn(paid);
-  toast(paid ? '✅ Marked as Paid' : '❌ Marked as Unpaid', paid ? 'green' : 'red');
-}
-
-function _renderPaymentBtn(paid) {
-  const icon  = document.getElementById('payment-icon');
-  const label = document.getElementById('payment-label');
-  const sub   = document.getElementById('payment-sub');
-  const btn   = document.getElementById('payment-btn');
-  if (!icon) return;
-  if (paid) {
-    icon.textContent  = '✅';
-    label.textContent = 'Paid';
-    label.style.color = 'var(--green)';
-    sub.textContent   = 'Customer has paid';
-    btn.style.borderColor = 'rgba(0,255,135,.3)';
-    btn.style.background  = 'rgba(0,255,135,.06)';
-  } else {
-    icon.textContent  = '💰';
-    label.textContent = 'Mark as Paid';
-    label.style.color = 'var(--text)';
-    sub.textContent   = 'Customer has not paid yet';
-    btn.style.borderColor = 'rgba(255,140,0,.3)';
-    btn.style.background  = 'rgba(255,140,0,.06)';
-  }
-}
-
-// Reset payment status when PC control screen opens
-const _origOpenPC = openPC;
-window.openPC = function(id) {
-  _origOpenPC(id);
-  const paid = _paymentStatus[id] || false;
-  setTimeout(() => _renderPaymentBtn(paid), 100);
-};
-
-// ── Transfer Time ─────────────────────────────────────────────────────────
-async function openTransferSheet() {
-  openSheet('sheet-transfer');
-  const now = Math.floor(Date.now() / 1000);
-  const left = state.activePc.session_end > now ? state.activePc.session_end - now : 0;
-  const mins = Math.floor(left / 60);
-  const otherPCs = state.pcs.filter(p => p.id !== state.activePc.id && p.is_online);
-  const list = document.getElementById('transfer-pc-list');
-  if (!otherPCs.length) {
-    list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">No other online PCs available</div>';
-    return;
-  }
-  list.innerHTML = `
-    <div style="color:var(--muted);font-size:13px;margin-bottom:12px">
-      Transfer <strong style="color:var(--text)">${mins} min</strong> remaining from
-      <strong style="color:var(--text)">${state.activePc.name}</strong> to:
-    </div>` +
-    otherPCs.map(pc => `
-      <div onclick="doTransfer('${pc.id}','${pc.name}')"
-        style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;
-        padding:16px;margin-bottom:10px;cursor:pointer;display:flex;
-        justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-weight:700;font-size:15px">${pc.name}</div>
-          <div style="color:var(--muted);font-size:12px;margin-top:3px">Tap to transfer</div>
-        </div>
-        <span style="color:#a064ff;font-size:20px">→</span>
-      </div>`).join('');
-}
-
-async function doTransfer(targetPcId, targetName) {
-  closeSheet('sheet-transfer');
-  const now  = Math.floor(Date.now() / 1000);
-  const left = state.activePc.session_end > now ? state.activePc.session_end - now : 0;
-  const mins = Math.ceil(left / 60);
-  if (mins < 1) return toast('No time to transfer', 'red');
-  try {
-    // End session on current PC
-    await api('POST', '/pcs/' + state.activePc.id + '/session/end', { group_id: state.activeGroup.id });
-    updatePcTime(state.activePc.id, 0, 0);
-    // Start session on target PC with remaining minutes
-    const r = await api('POST', '/pcs/' + targetPcId + '/session/start', {
-      duration_minutes: mins,
-      group_id: state.activeGroup.id
-    });
-    const tp = state.pcs.find(p => p.id === targetPcId);
-    if (tp) { tp.session_end = r.session_end; }
-    toast(`✅ ${mins} min transferred to ${targetName}`, 'green');
-  } catch(e) { toast(e.message, 'red'); }
-}
-
-// ════════════════════════════════════════════════════════
-// PAYMENT STATUS
-// ════════════════════════════════════════════════════════
-const PAYMENT_COLORS = {
-  unpaid:   { bg: 'rgba(255,51,85,.15)',   border: 'rgba(255,51,85,.4)',   color: '#ff3355', label: '❌ Unpaid' },
-  prepaid:  { bg: 'rgba(0,255,135,.15)',   border: 'rgba(0,255,135,.4)',   color: 'var(--green)', label: '✅ Prepaid' },
-  postpaid: { bg: 'rgba(68,136,255,.15)',  border: 'rgba(68,136,255,.4)',  color: 'var(--blue)',  label: '💳 Pay Later' },
-  none:     { bg: 'transparent',           border: 'var(--border)',        color: 'var(--muted)', label: '' },
-};
-
-// Store payment status per PC in memory
-const _paymentStatus = {};
-
-function renderPaymentGrid() {
-  const pc = state.activePc;
-  if (!pc) return;
-  const status = _paymentStatus[pc.id] || 'none';
-  const el = document.getElementById('payment-grid');
-  if (!el) return;
-  if (status === 'none') {
-    el.innerHTML = `
-      <div class="action-tile full" onclick="openPaymentSheet()" style="border-color:var(--border)">
-        <div class="action-icon">💰</div>
-        <div class="action-label">Payment Status</div>
-        <div class="action-sub">Tap to mark payment</div>
-      </div>`;
-  } else {
-    const p = PAYMENT_COLORS[status];
-    el.innerHTML = `
-      <div class="action-tile full" onclick="openPaymentSheet()" style="border-color:${p.border};background:${p.bg}">
-        <div class="action-icon">💰</div>
-        <div class="action-label" style="color:${p.color}">${p.label}</div>
-        <div class="action-sub">Tap to change</div>
-      </div>`;
-  }
-}
-
-function openPaymentSheet() {
-  document.getElementById('payment-pc-label').textContent =
-    'Mark payment for ' + (state.activePc?.name || 'this PC');
-  openSheet('sheet-payment');
-}
-
-function setPayment(status) {
-  if (!state.activePc) return;
-  _paymentStatus[state.activePc.id] = status;
-  closeSheet('sheet-payment');
-  renderPaymentGrid();
-  const labels = { unpaid: 'Marked as Unpaid', prepaid: 'Marked as Prepaid',
-                   postpaid: 'Marked as Pay Later', none: 'Status cleared' };
-  toast(labels[status] || 'Updated', 'green');
-}
-
-// ════════════════════════════════════════════════════════
-// TRANSFER TIME
-// ════════════════════════════════════════════════════════
-function openTransferSheet() {
-  const pc  = state.activePc;
-  const now = Math.floor(Date.now() / 1000);
-  const left = pc.session_end > now ? pc.session_end - now : 0;
-  document.getElementById('transfer-sub').textContent =
-    `Move ${fmtTime(left)} from ${pc.name} to another PC`;
-
-  // Build PC list excluding current
-  const list = document.getElementById('transfer-pc-list');
-  const others = state.pcs.filter(p => p.id !== pc.id && p.is_online);
-  if (!others.length) {
-    list.innerHTML = '<div style="color:var(--muted);padding:20px;text-align:center">No other PCs online</div>';
-  } else {
-    list.innerHTML = others.map(p => `
-      <div onclick="confirmTransfer('${p.id}','${p.name}')"
-        style="padding:16px;background:var(--bg3);border-radius:12px;margin-bottom:8px;
-        cursor:pointer;border:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-weight:700;font-size:15px">${p.name}</div>
-          <div style="color:var(--muted);font-size:12px">${p.is_online ? 'Online' : 'Offline'}</div>
-        </div>
-        <div style="color:#9664ff;font-size:22px">→</div>
-      </div>`).join('');
-  }
-  openSheet('sheet-transfer');
-}
-
-function confirmTransfer(toPcId, toPcName) {
-  const pc  = state.activePc;
-  const now = Math.floor(Date.now() / 1000);
-  const left = pc.session_end > now ? pc.session_end - now : 0;
-  if (left < 60) return toast('Not enough time to transfer (min 1 min)', 'red');
-  if (!confirm(`Transfer ${fmtTime(left)} from ${pc.name} to ${toPcName}?`)) return;
-  closeSheet('sheet-transfer');
-  const mins = Math.floor(left / 60);
-  // End current PC session then start on target
-  api('POST', '/pcs/' + pc.id + '/session/end', { group_id: state.activeGroup.id })
-    .then(() => {
-      updatePcTime(pc.id, 0, 0);
-      return api('POST', '/pcs/' + toPcId + '/session/start',
-        { duration_minutes: mins, group_id: state.activeGroup.id });
-    })
-    .then(r => {
-      updatePcTime(toPcId, r.session_end, 0);
-      toast(`✅ ${fmtTime(mins*60)} transferred to ${toPcName}`, 'green');
-    })
-    .catch(e => toast(e.message, 'red'));
-}
-
-// Hook openSheet to load transfer sheet content
-const _origOpenSheet = openSheet;
-window.openSheet = function(id) {
-  _origOpenSheet(id);
-  if (id === 'sheet-transfer') openTransferSheet();
-};
-
-// Hook openPC to render payment grid
-const _origOpenPC = openPC;
-window.openPC = function(id) {
-  _origOpenPC(id);
-  setTimeout(renderPaymentGrid, 50);
-};
 
 // Start ticker on load if already on dashboard
 startDashTicker();
