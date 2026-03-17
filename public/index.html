@@ -34,7 +34,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg);
   opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;transform:translateX(24px);
   overflow:hidden}
-.screen.active{opacity:1;pointer-events:all;transform:translateX(0);position:relative}
+.screen.active{opacity:1;pointer-events:all;transform:translateX(0)}
 .safe-top{padding-top:max(20px,env(safe-area-inset-top))}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;
   padding-top:max(14px,env(safe-area-inset-top));background:var(--bg);position:sticky;top:0;
@@ -42,7 +42,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .topbar-title{font-size:17px;font-weight:700}
 .back-btn{color:var(--green);font-size:14px;font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0}
 .icon-btn{background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;padding:4px}
-.scroll-content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0}
+.scroll-content{flex:1;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;min-height:0;height:0}
 .padded{padding:16px 20px}
 
 /* Login */
@@ -240,7 +240,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
     <div id="pc-online-pill" class="online-pill"></div>
   </div>
   <div class="scroll-content">
-    <div id="pc-actions" style="padding-top:12px"></div>
+    <div id="pc-actions" style="padding-top:12px;display:flex;flex-direction:column;min-height:100%">
+    </div>
   </div>
 </div>
 
@@ -725,6 +726,9 @@ function renderPCActions() {
       </div>
     </div>`;
   }
+
+  // Spacer pushes screen+apps to bottom
+  html += `<div style="flex:1;min-height:16px"></div>`;
 
   // Lock / Unlock
   html += `
