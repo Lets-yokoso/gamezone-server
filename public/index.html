@@ -1640,7 +1640,7 @@ const PAYMENT_COLORS = {
 };
 
 // Store payment status per PC in memory
-const _paymentStatus = {};
+
 
 function renderPaymentGrid() {
   const pc = state.activePc;
@@ -1742,7 +1742,7 @@ window.openSheet = function(id) {
 };
 
 // Hook openPC to render payment grid
-const _origOpenPC = openPC;
+_origOpenPC = openPC;
 window.openPC = function(id) {
   _origOpenPC(id);
   setTimeout(renderPaymentGrid, 50);
