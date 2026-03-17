@@ -685,6 +685,8 @@ function renderPCActions() {
   let html = '';
 
   if (isActive) {
+    // Spacer pushes everything below timer to bottom
+    html += '<div style="flex:1"></div>';
     // Timer + payment row
     const timerColor = isWatch?'var(--blue)':left<300?'var(--orange)':left<60?'var(--red)':'var(--green)';
     const timerVal = isWatch ? fmtTime(Math.floor(Date.now()/1000)-pc.stopwatch_start) : fmtTime(left);
@@ -715,6 +717,8 @@ function renderPCActions() {
       </div>
     </div>`;
   } else {
+    // Spacer pushes start session + screen + apps to bottom
+    html += '<div style="flex:1"></div>';
     // No session — Start Session only
     html += `
     <div class="section-label">SESSION</div>
@@ -726,9 +730,6 @@ function renderPCActions() {
       </div>
     </div>`;
   }
-
-  // Spacer — pushes screen+apps to bottom
-  html += '<div style="flex:1"></div>';
 
   // Lock / Unlock
   html += `
