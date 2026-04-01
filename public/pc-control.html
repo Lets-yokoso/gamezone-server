@@ -322,7 +322,7 @@ function handleSessionUpdate(data) {
 
 function handleHistoryUpdate(data) {
   if (data.pc_id === window.currentPcId) {
-    lhSet(data.pc_id, data.history || [], getSocket(), data.group_id);
+    lhSet(data.pc_id, data.history || [], null, null);
     renderPCActions();
   }
 }

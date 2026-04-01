@@ -37,7 +37,7 @@ setInterval(async () => {
       }
     }
   }
-}, 30000);
+}, 5000);
 
 module.exports = (io) => {
   // Store io globally for the cleanup interval
