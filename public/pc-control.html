@@ -253,15 +253,16 @@ function renderPCActions() {
     '</div></div>';
 
   const sessionArea = document.getElementById('pc-session-area');
+  let html = '';
   if (isActive) {
-    sessionArea.innerHTML = '<div class="section-head">Session Control</div>' +
+    html += '<div class="section-head">Session Control</div>' +
       '<div class="action-grid cols3" style="margin-bottom:20px">' +
       '<div class="action-card" onclick="openSheet(\'sheet-addtime\')"><div class="action-card-icon"><i class="fa-solid fa-circle-plus" style="color:var(--green)"></i></div><div class="action-card-label">Add Time</div></div>' +
       '<div class="action-card" onclick="openSheet(\'sheet-removetime\')"><div class="action-card-icon"><i class="fa-solid fa-circle-minus" style="color:var(--amber)"></i></div><div class="action-card-label">Remove</div></div>' +
       '<div class="action-card" onclick="confirmEndSession()"><div class="action-card-icon"><i class="fa-solid fa-stop" style="color:var(--red)"></i></div><div class="action-card-label">End</div></div>' +
       '</div>';
   } else {
-    sessionArea.innerHTML = '<div class="section-head">Session Control</div>' +
+    html += '<div class="section-head">Session Control</div>' +
       '<div class="action-grid cols1" style="margin-bottom:20px">' +
       '<div class="action-card" onclick="openSheet(\'sheet-startsession\')">' +
       '<div class="action-card-icon"><i class="fa-solid fa-play" style="color:var(--green)"></i></div>' +
@@ -271,12 +272,12 @@ function renderPCActions() {
   }
 
   const history = lhGet(pc.id);
+  html += '<div class="section-head" style="justify-content:space-between;margin-top:20px">Recent Activity ' +
+    '<button onclick="refreshHistory()" style="margin-left:auto;background:var(--s3);border:1px solid var(--bd2);color:var(--t2);cursor:pointer;font-size:10px;font-family:var(--sans);display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r);letter-spacing:0;text-transform:none;font-weight:600;transition:all .15s" onmouseover="this.style.color=\'var(--t1)\'" onmouseout="this.style.color=\'var(--t2)\'">' +
+    '<i class="fa-solid fa-rotate" style="font-size:10px"></i> Refresh</button></div>' +
+    '<div class="action-grid" style="padding-bottom:0;margin-bottom:20px;display:block">' +
+    '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden">';
   if (history && history.length > 0) {
-    let hHtml = '<div class="section-head" style="justify-content:space-between;margin-top:20px">Recent Activity ' +
-      '<button onclick="refreshHistory()" style="margin-left:auto;background:var(--s3);border:1px solid var(--bd2);color:var(--t2);cursor:pointer;font-size:10px;font-family:var(--sans);display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r);letter-spacing:0;text-transform:none;font-weight:600;transition:all .15s" onmouseover="this.style.color=\'var(--t1)\'" onmouseout="this.style.color=\'var(--t2)\'">' +
-      '<i class="fa-solid fa-rotate" style="font-size:10px"></i> Refresh</button></div>' +
-      '<div class="action-grid" style="padding-bottom:0;margin-bottom:20px;display:block">' +
-      '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden">';
     history.forEach(entry => {
       const isSession = entry.type === 'session';
       const isFree = isSession && entry.mode === 'free';
@@ -292,15 +293,17 @@ function renderPCActions() {
         label = isAdd ? 'Added' : 'Removed';
       }
       const col2 = isFree ? 'var(--blue)' : 'var(--green)';
-      hHtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd)">' +
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd)">' +
         '<span style="font-size:13px;font-weight:700;color:' + col2 + ';font-family:var(--mono)">' + icon + ' ' + escapeHtml(valStr) + '</span>' +
         '<span style="font-size:11px;color:var(--t3)">' + escapeHtml(label) + '</span>' +
         (isEnded ? '<span style="font-size:9px;color:var(--t3);margin-left:auto">(ended)</span>' : '') +
         '</div>';
     });
-    hHtml += '</div></div>';
-    sessionArea.innerHTML += hHtml;
+  } else {
+    html += '<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">No recent activity</div>';
   }
+  html += '</div></div>';
+  sessionArea.innerHTML = html;
 }
 
 function handleStatusUpdate(data) {
