@@ -48,6 +48,7 @@ window.addEventListener('load', () => {
   if (!requireAuth()) return;
   loadGroups();
   checkExpiryWarning();
+  applyPrefs();
 });
 
 async function loadGroups() {

@@ -195,4 +195,14 @@ select.field-input{cursor:pointer;background:var(--bg)}
   .fab{position:fixed!important;bottom:32px!important;right:32px!important;width:auto!important;min-width:140px!important;margin:0!important;padding:13px 20px!important}
   .desktop-only{display:flex!important}
 }
+
+/* Mobile: hide sidebar, fix scroll, FAB at bottom */
+@media(max-width:1023px){
+  .sidebar-col{display:none!important}
+  .app-layout{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  .main-col{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+  .main-content{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .fab{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100%!important;margin:0!important;border-radius:0!important;padding:14px 18px!important;z-index:60!important}
+  .main-col{padding-bottom:60px}
+}
 .desktop-only{display:none!important}
