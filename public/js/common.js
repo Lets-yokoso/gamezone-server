@@ -188,17 +188,26 @@ function doLogout() {
   window.location.href = '/';
 }
 
-function checkExpiryWarning() {
-  const expiry = COMMON.user?.expiry_date;
+async function checkExpiryWarning() {
   const banner = document.getElementById('expiry-banner');
   if (!banner) return;
-  if (!expiry) { banner.style.display = 'none'; return; }
-  const daysLeft = Math.ceil((expiry - Date.now()) / 86400000);
-  if (daysLeft > 0 && daysLeft <= 5) {
-    banner.style.display = 'flex';
-    const daysEl = document.getElementById('expiry-days');
-    if (daysEl) daysEl.textContent = daysLeft;
-  } else {
+  try {
+    const data = await api('GET', '/me');
+    const expiry = data.expiry_date;
+    if (!expiry) { banner.style.display = 'none'; return; }
+    const daysLeft = Math.ceil((expiry - Date.now()) / 86400000);
+    if (daysLeft > 0 && daysLeft <= 5) {
+      banner.style.display = 'flex';
+      const daysEl = document.getElementById('expiry-days');
+      if (daysEl) daysEl.textContent = daysLeft;
+    } else {
+      banner.style.display = 'none';
+    }
+    // Update localStorage with fresh user data
+    if (COMMON.user) {
+      COMMON.user.expiry_date = expiry;
+    }
+  } catch {
     banner.style.display = 'none';
   }
 }
