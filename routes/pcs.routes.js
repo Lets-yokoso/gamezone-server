@@ -112,7 +112,7 @@ router.post('/pcs/:pcId/session/start', [
     const session_id = uuidv4();
     const io = req.app.get('io');
     const { pcId } = req.params;
-    const { duration_minutes, group_id } = req.body;
+    const { duration_minutes } = req.body;
     const pc = await db.get('pcs', p => p.id === pcId);
     if (!pc) return res.status(404).json({ error: 'PC not found' });
     if (!await canManageGroup(req.user.id, pc.group_id)) return res.status(403).json({ error: 'Forbidden' });
