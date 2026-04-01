@@ -89,6 +89,7 @@ async function loadPCs() {
     }
     renderPCs();
     renderSidebarGroups();
+    applyPrefs();
   } catch (e) { toast('Failed to load PCs', 'err'); }
 }
 
