@@ -89,7 +89,7 @@ router.post('/groups/:groupId/pcs/reorder', [
 
 router.post('/pcs/:pcId/payment', [
   param('pcId').isUUID().withMessage('Invalid PC ID'),
-  body('payment_status').nullable().isIn(['paid', 'unpaid']).withMessage('Payment status must be paid or unpaid'),
+  body('payment_status').optional({ values: 'falsy' }).isIn(['paid', 'unpaid']).withMessage('Payment status must be paid or unpaid'),
 ], validate, async (req, res) => {
   try {
     const io = req.app.get('io');
