@@ -11,7 +11,37 @@ function isValidUUID(str) {
   return typeof str === 'string' && UUID_REGEX.test(str);
 }
 
+// Track last heartbeat per PC for stale connection cleanup
+const _lastHeartbeat = {};
+
+// Server-side cleanup: mark PCs offline if no heartbeat in 90 seconds
+setInterval(async () => {
+  const cutoff = Date.now() - 90000;
+  for (const [pcId, lastSeen] of Object.entries(_lastHeartbeat)) {
+    if (lastSeen < cutoff) {
+      delete _lastHeartbeat[pcId];
+      try {
+        const pc = await db.get('pcs', p => p.id === pcId);
+        if (pc && pc.is_online) {
+          await db.update('pcs', p => p.id === pcId, { is_online: 0 });
+          if (pc.group_id) {
+            const io = global._io;
+            if (io) {
+              io.to(`group:${pc.group_id}`).emit(`group:${pc.group_id}:pc-status`, { pc_id: pcId, is_online: false });
+            }
+          }
+          console.log(`[TIMEOUT] PC ${pcId} marked offline (no heartbeat)`);
+        }
+      } catch (e) {
+        console.error(`[TIMEOUT] Error marking PC ${pcId} offline:`, e);
+      }
+    }
+  }
+}, 30000);
+
 module.exports = (io) => {
+  // Store io globally for the cleanup interval
+  global._io = io;
   io.on('connection', (socket) => {
 
     socket.on('pc:heartbeat', async ({ pc_name, group_id, timestamp }) => {
@@ -20,6 +50,7 @@ module.exports = (io) => {
       if (!socket.pcId) return;
       const pc = await db.get('pcs', p => p.name === pc_name && p.group_id === group_id);
       if (!pc || pc.id !== socket.pcId) return;
+      _lastHeartbeat[pc.id] = Date.now();
       if (!pc.is_online) {
         await db.update('pcs', p => p.id === pc.id, { is_online: 1 });
         io.to(`group:${group_id}`).emit(`group:${group_id}:pc-status`, { pc_id: pc.id, is_online: true });
@@ -152,6 +183,7 @@ module.exports = (io) => {
 
     socket.on('disconnect', async () => {
       if (socket.pcId) {
+        delete _lastHeartbeat[socket.pcId];
         await db.update('pcs', p => p.id === socket.pcId, { is_online: 0 });
         if (socket.groupId) {
           io.to(`group:${socket.groupId}`).emit(`group:${socket.groupId}:pc-status`, { pc_id: socket.pcId, is_online: false });
