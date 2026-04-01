@@ -200,6 +200,8 @@ select.field-input{cursor:pointer;background:var(--bg)}
 @media(max-width:1023px){
   html,body{overflow:auto!important;height:auto!important}
   .sidebar-col{display:none!important}
+  .page-groups .sidebar-col{display:flex!important;flex-direction:column!important}
+  .page-groups .sidebar-header{display:flex!important}
   .app-layout{display:block;min-height:100dvh}
   .main-col{display:flex;flex-direction:column;min-height:100dvh}
   .main-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
