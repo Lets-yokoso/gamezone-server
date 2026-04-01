@@ -14,9 +14,9 @@ function isValidUUID(str) {
 // Track last heartbeat per PC for stale connection cleanup
 const _lastHeartbeat = {};
 
-// Server-side cleanup: mark PCs offline if no heartbeat in 45 seconds
+// Server-side cleanup: mark PCs offline if no heartbeat in 10 seconds
 setInterval(async () => {
-  const cutoff = Date.now() - 45000;
+  const cutoff = Date.now() - 10000;
   for (const [pcId, lastSeen] of Object.entries(_lastHeartbeat)) {
     if (lastSeen < cutoff) {
       delete _lastHeartbeat[pcId];
