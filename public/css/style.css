@@ -12,7 +12,7 @@
   --sidebar: 300px;--nav-h: 60px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--sans);overflow:hidden}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--sans)}
 *{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
 .mono-block,input,textarea,select{-webkit-user-select:text!important;-moz-user-select:text!important;-ms-user-select:text!important;user-select:text!important}
 body{display:flex;flex-direction:column}
@@ -200,8 +200,6 @@ select.field-input{cursor:pointer;background:var(--bg)}
 @media(max-width:1023px){
   html,body{overflow:auto!important;height:auto!important}
   .sidebar-col{display:none!important}
-  .page-groups .sidebar-col{display:flex!important;flex-direction:column!important}
-  .page-groups .sidebar-header{display:flex!important}
   .app-layout{display:block;min-height:100dvh}
   .main-col{display:flex;flex-direction:column;min-height:100dvh}
   .main-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
