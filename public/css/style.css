@@ -203,9 +203,10 @@ select.field-input{cursor:pointer;background:var(--bg)}
   .page-groups .sidebar-col{display:flex!important;flex-direction:column!important}
   .page-groups .sidebar-header{display:flex!important}
   .app-layout{display:block;min-height:100dvh}
-  .main-col{display:flex;flex-direction:column;min-height:100dvh}
-  .main-content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .main-col{display:block;min-height:100dvh;padding-bottom:80px}
+  .main-content{overflow:visible!important;flex:none}
+  .scroll-area{overflow:visible!important;flex:none}
+  .scroll-inner{width:100%}
   .fab{position:fixed!important;bottom:0!important;left:0!important;right:0!important;width:100%!important;margin:0!important;border-radius:0!important;padding:14px 18px!important;z-index:60!important}
-  .main-col{padding-bottom:60px}
 }
 .desktop-only{display:none!important}
