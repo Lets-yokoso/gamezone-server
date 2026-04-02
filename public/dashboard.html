@@ -165,15 +165,31 @@ function switchGroup(id) {
 
 function updateTimers() {
   const now = Math.floor(Date.now() / 1000);
-  document.querySelectorAll('.pc-timer').forEach((timerEl) => {
-    const pcId = timerEl.closest('.pc-card')?.getAttribute('data-pc-id');
+  document.querySelectorAll('.pc-card').forEach((cardEl) => {
+    const pcId = cardEl.getAttribute('data-pc-id');
     if (!pcId) return;
     const pc = window.pcs.find(p => p.id === pcId);
     if (!pc) return;
     const left = pc.session_end > now ? pc.session_end - now : 0;
     const isWatch = pc.stopwatch_start > 0;
     const elapsed = isWatch ? now - pc.stopwatch_start : 0;
-    timerEl.textContent = isWatch ? fmtTime(elapsed) : left > 0 ? fmtTime(left) : '--:--';
+    const timerEl = cardEl.querySelector('.pc-timer');
+    if (timerEl) timerEl.textContent = isWatch ? fmtTime(elapsed) : left > 0 ? fmtTime(left) : '--:--';
+    const col = !pc.is_online ? 'var(--t3)' : isWatch ? 'var(--blue)' : left > 300 ? 'var(--green)' : left > 0 ? 'var(--amber)' : 'var(--red)';
+    const bg = !pc.is_online ? 'var(--s3)' : isWatch ? 'var(--blue-bg)' : left > 300 ? 'var(--green-bg)' : left > 0 ? 'var(--amber-bg)' : 'var(--red-bg)';
+    const bd = !pc.is_online ? 'var(--bd)' : isWatch ? 'var(--blue-bd)' : left > 300 ? 'var(--green-bd)' : left > 0 ? 'var(--amber-bd)' : 'var(--red-bd)';
+    cardEl.style.setProperty('--pc-color', col);
+    cardEl.style.setProperty('--pc-bg', bg);
+    cardEl.style.setProperty('--pc-bd', bd);
+    const badge = cardEl.querySelector('.pc-badge');
+    if (badge) {
+      const hasSession = left > 0 || isWatch;
+      const status = !hasSession ? (pc.is_online ? 'Idle' : 'Offline') : isWatch ? 'Free' : 'Active';
+      badge.textContent = status;
+      badge.style.color = col;
+      badge.style.background = bg;
+      badge.style.borderColor = bd;
+    }
   });
 }
 

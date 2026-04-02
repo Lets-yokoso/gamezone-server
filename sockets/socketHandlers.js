@@ -116,15 +116,19 @@ module.exports = (io) => {
     });
 
     socket.on('pc:apps', async ({ apps }) => {
-      if (!socket.pcId) return;
+      if (!socket.pcId) {
+        console.warn('[APPS] Received apps before auth - ignoring');
+        return;
+      }
       if (!Array.isArray(apps) || apps.length > 500) return;
       await db.delete('installed_apps', a => a.pc_id === socket.pcId);
       const validApps = apps
-        .filter(a => typeof a.name === 'string' && a.name.length <= 200 && typeof a.path === 'string' && a.path.length <= 1000)
+        .filter(a => typeof a.name === 'string' && a.name.length <= 500 && typeof a.path === 'string' && a.path.length <= 1000)
         .map(a => ({ id: uuidv4(), pc_id: socket.pcId, name: a.name, path: a.path }));
       for (const a of validApps) {
         await db.insert('installed_apps', a);
       }
+      console.log(`[APPS] Stored ${validApps.length} apps for PC ${socket.pcId}`);
     });
 
     socket.on('admin:subscribe', ({ group_id, token }) => {
