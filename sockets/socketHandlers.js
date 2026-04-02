@@ -14,9 +14,9 @@ function isValidUUID(str) {
 // Track last heartbeat per PC for stale connection cleanup
 const _lastHeartbeat = {};
 
-// Server-side cleanup: mark PCs offline if no heartbeat in 10 seconds
+// Server-side cleanup: mark PCs offline if no heartbeat in 30 seconds
 setInterval(async () => {
-  const cutoff = Date.now() - 10000;
+  const cutoff = Date.now() - 30000;
   for (const [pcId, lastSeen] of Object.entries(_lastHeartbeat)) {
     if (lastSeen < cutoff) {
       delete _lastHeartbeat[pcId];
@@ -106,6 +106,7 @@ module.exports = (io) => {
       socket.join(`pc:${pc.id}`);
       socket.pcId = pc.id;
       socket.groupId = group_id;
+      _lastHeartbeat[pc.id] = Date.now();
       await db.update('pcs', p => p.id === pc.id, { is_online: 1 });
       io.to(`group:${group_id}`).emit(`group:${group_id}:pc-status`, { pc_id: pc.id, is_online: true });
       console.log(`[+] PC "${pc_name}" connected`);
