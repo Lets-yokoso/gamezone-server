@@ -103,13 +103,13 @@ module.exports = (io) => {
         }
       }
 
-      socket.join(`pc:${pc.id}`);
+      await socket.join(`pc:${pc.id}`);
       socket.pcId = pc.id;
       socket.groupId = group_id;
       _lastHeartbeat[pc.id] = Date.now();
       await db.update('pcs', p => p.id === pc.id, { is_online: 1 });
       io.to(`group:${group_id}`).emit(`group:${group_id}:pc-status`, { pc_id: pc.id, is_online: true });
-      console.log(`[+] PC "${pc_name}" connected`);
+      console.log(`[+] PC "${pc_name}" connected, joined room pc:${pc.id}`);
       const now = Math.floor(Date.now()/1000);
       const swStart = (pc.stopwatch_start && pc.stopwatch_start < now && (now - pc.stopwatch_start) < 86400) ? pc.stopwatch_start : 0;
       const remAuth = pc.session_end > now ? pc.session_end - now : 0;

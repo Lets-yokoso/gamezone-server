@@ -228,6 +228,7 @@ router.post('/pcs/:pcId/lock', [
     if (!pc) return res.status(404).json({ error: 'PC not found' });
     if (!await canManageGroup(req.user.id, pc.group_id)) return res.status(403).json({ error: 'Forbidden' });
     io.to(`pc:${req.params.pcId}`).emit('command:lock', {});
+    console.log(`[CMD] Lock sent to PC ${req.params.pcId}`);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -241,6 +242,7 @@ router.post('/pcs/:pcId/unlock', [
     if (!pc) return res.status(404).json({ error: 'PC not found' });
     if (!await canManageGroup(req.user.id, pc.group_id)) return res.status(403).json({ error: 'Forbidden' });
     io.to(`pc:${req.params.pcId}`).emit('command:unlock', {});
+    console.log(`[CMD] Unlock sent to PC ${req.params.pcId}`);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -255,7 +257,7 @@ router.post('/pcs/:pcId/sleep', [
     if (!pc) return res.status(404).json({ error: 'PC not found' });
     if (!await canManageGroup(req.user.id, pc.group_id)) return res.status(403).json({ error: 'Forbidden' });
     io.to(`pc:${pcId}`).emit('command:sleep', {});
-    console.log(`[AUDIT] ${req.user.username} triggered SLEEP on PC ${pcId}`);
+    console.log(`[CMD] Sleep sent to PC ${pcId}`);
     res.json({ success: true });
   } catch(e) { console.error('Sleep error:', e); res.status(500).json({ error: e.message }); }
 });
@@ -270,7 +272,7 @@ router.post('/pcs/:pcId/shutdown', [
     if (!pc) return res.status(404).json({ error: 'PC not found' });
     if (!await canManageGroup(req.user.id, pc.group_id)) return res.status(403).json({ error: 'Forbidden' });
     io.to(`pc:${pcId}`).emit('command:shutdown', {});
-    console.log(`[AUDIT] ${req.user.username} triggered SHUTDOWN on PC ${pcId}`);
+    console.log(`[CMD] Shutdown sent to PC ${pcId}`);
     res.json({ success: true });
   } catch(e) { console.error('Shutdown error:', e); res.status(500).json({ error: e.message }); }
 });
@@ -328,6 +330,7 @@ router.post('/pcs/:pcId/launch', [
     if (!await canManageGroup(req.user.id, pc.group_id)) return res.status(403).json({ error: 'Forbidden' });
     const { app_path } = req.body;
     io.to(`pc:${pcId}`).emit('command:launch', { app_path });
+    console.log(`[CMD] Launch '${app_path}' sent to PC ${pcId}`);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
