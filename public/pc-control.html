@@ -544,9 +544,6 @@ async function openKillSheet() {
 }
 
 async function killAllProcesses() {
-  const state = window._modalState;
-  if (!state || state.type !== 'kill-all') return closeModal();
-  closeModal();
   const procs = window._procs.slice();
   const results = await Promise.allSettled(procs.map(proc =>
     api('POST', '/pcs/' + window.currentPcId + '/kill-process', { pid: proc.pid, name: proc.name, group_id: window.currentGroupId })
