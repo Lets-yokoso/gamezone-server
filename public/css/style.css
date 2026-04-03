@@ -74,7 +74,7 @@ select.field-input{cursor:pointer;background:var(--bg)}
 .stat-box{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);padding:18px 16px}
 .stat-val{font-size:32px;font-weight:800;font-family:var(--mono);line-height:1;letter-spacing:-1.5px}
 .stat-key{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--t3);margin-top:6px}
-.pc-grid{grid-template-columns:repeat(2, 1fr);gap:14px;padding:0 32px 32px}
+.pc-grid{display:grid;grid-template-columns:repeat(2, 1fr);gap:14px;padding:0 32px 32px}
 .pc-card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);padding:16px;cursor:pointer;transition:border-color .18s,background .18s;overflow:hidden;position:relative}
 .pc-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--pc-color,var(--s4))}
 .pc-card:hover{border-color:var(--bd2);background:var(--s2)}
