@@ -191,6 +191,7 @@ function lhAdd(pcId, entry, socket, groupId) {
 }
 
 function doLogout() {
+  window._modalState = { type: 'logout' };
   showModal('Logout?', 'Are you sure you want to logout?', 'logout');
 }
 

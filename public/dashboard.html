@@ -238,6 +238,17 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-message" id="modal-message"></div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="modal-confirm-btn" onclick="executeAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 window.addEventListener('beforeunload', () => {
   if (window._timerInterval) clearInterval(window._timerInterval);
   disconnectSocket();
