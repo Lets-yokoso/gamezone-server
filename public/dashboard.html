@@ -238,6 +238,12 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+window.addEventListener('beforeunload', () => {
+  if (window._timerInterval) clearInterval(window._timerInterval);
+  disconnectSocket();
+});
+</script>
+
 <div class="modal-overlay" id="confirm-modal">
   <div class="modal-box">
     <div class="modal-title" id="modal-title"></div>
@@ -248,11 +254,5 @@ function escapeHtml(str) {
     </div>
   </div>
 </div>
-
-window.addEventListener('beforeunload', () => {
-  if (window._timerInterval) clearInterval(window._timerInterval);
-  disconnectSocket();
-});
-</script>
 </body>
 </html>
