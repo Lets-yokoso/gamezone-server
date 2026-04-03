@@ -477,7 +477,12 @@ function removeCustomTime() {
 }
 
 function confirmEndSession() {
-  if (!confirm('End session on ' + window.pc.name + '?\nScreen will lock immediately.')) return;
+  showModal('End Session?', 'End session on ' + escapeHtml(window.pc.name) + '?\n\n\u26a0\ufe0f Screen will lock immediately.', 'end-session');
+  document.getElementById('modal-confirm-btn').textContent = 'End Session';
+  window._modalState = { type: 'end-session' };
+}
+
+function confirmEndSessionAction() {
   const pc = window.pc;
   const history = lhGet(pc.id);
   for (let i = 0; i < history.length; i++) {
@@ -539,7 +544,9 @@ async function openKillSheet() {
 }
 
 async function killAllProcesses() {
-  if (!confirm('Kill ALL running processes on ' + window.pc.name + '?')) return;
+  const state = window._modalState;
+  if (!state || state.type !== 'kill-all') return closeModal();
+  closeModal();
   const procs = window._procs.slice();
   const results = await Promise.allSettled(procs.map(proc =>
     api('POST', '/pcs/' + window.currentPcId + '/kill-process', { pid: proc.pid, name: proc.name, group_id: window.currentGroupId })
@@ -548,6 +555,12 @@ async function killAllProcesses() {
   const failed = results.filter(r => r.status === 'rejected').length;
   document.getElementById('killtasks-list').innerHTML = '<div style="color:var(--green);text-align:center;padding:28px;font-size:12px">All processes killed' + (failed ? ' (' + failed + ' failed)' : '') + '</div>';
   toast('All processes killed' + (failed ? ' (' + failed + ' failed)' : ''), 'ok');
+}
+
+function confirmKillAll() {
+  showModal('Kill All Processes?', 'Kill ALL running processes on ' + escapeHtml(window.pc.name) + '?\n\n\u26a0\ufe0f This will close all games and applications.', 'kill-all');
+  document.getElementById('modal-confirm-btn').textContent = 'Kill All';
+  window._modalState = { type: 'kill-all' };
 }
 
 async function killProcess(i) {

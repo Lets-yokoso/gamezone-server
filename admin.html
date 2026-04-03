@@ -399,7 +399,7 @@ function renderAccounts() {
       actions += `<button class="btn btn-green btn-sm" onclick="quickActivate('${a.id}')"><i class="fa-solid fa-play"></i> Activate</button>`;
     }
     actions += `<button class="btn btn-ghost btn-sm" onclick="openEdit('${a.id}')"><i class="fa-solid fa-pen"></i> Edit</button>`;
-    actions += `<button class="btn btn-danger btn-sm" onclick="deleteAccount('${a.id.replace(/'/g,"\\'")}','${(a.label||a.username).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}')"><i class="fa-solid fa-trash"></i></button>`;
+    actions += `<button class="btn btn-danger btn-sm" onclick="deleteAccount('${a.id.replace(/[^a-zA-Z0-9-]/g,'')}','${(a.label||a.username).replace(/[^a-zA-Z0-9_. -]/g,'')}')"><i class="fa-solid fa-trash"></i></button>`;
 
     return `<div class="acct-card">
       <div class="acct-bar" style="background:${col}"></div>

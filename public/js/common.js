@@ -107,6 +107,15 @@ async function executeAction() {
         toast('Group deleted', 'ok');
         window.location.href = '/groups';
       }
+    } else if (state.type === 'end-session') {
+      if (typeof confirmEndSessionAction === 'function') confirmEndSessionAction();
+    } else if (state.type === 'kill-all') {
+      if (typeof killAllProcesses === 'function') killAllProcesses();
+    } else if (state.type === 'logout') {
+      localStorage.clear();
+      window.location.href = '/';
+    } else if (state.type === 'remove-admin') {
+      if (typeof removeAdminAction === 'function') removeAdminAction(state.adminId, state.adminName);
     }
   } catch (e) {
     toast(e.message || 'Command failed', 'err');
@@ -182,10 +191,7 @@ function lhAdd(pcId, entry, socket, groupId) {
 }
 
 function doLogout() {
-  if (!confirm('Logout?')) return;
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('gz_'));
-  keys.forEach(k => localStorage.removeItem(k));
-  window.location.href = '/';
+  showModal('Logout?', 'Are you sure you want to logout?', 'logout');
 }
 
 async function checkExpiryWarning() {

@@ -214,8 +214,13 @@ async function addAdmin() {
   finally { document.getElementById('addadmin-btn-text').textContent = 'Add Admin'; }
 }
 
-async function removeAdmin(id, username) {
-  if (!confirm('Remove ' + username + ' as admin?')) return;
+function removeAdmin(id, username) {
+  showModal('Remove Admin?', 'Remove ' + escapeHtml(username) + ' as admin?', 'remove-admin');
+  document.getElementById('modal-confirm-btn').textContent = 'Remove';
+  window._modalState = { type: 'remove-admin', adminId: id, adminName: username };
+}
+
+async function removeAdminAction(id, username) {
   try { await api('DELETE', '/groups/' + window.currentGroupId + '/admins/' + id); toast(username + ' removed', 'ok'); loadAdmins(); }
   catch (e) { toast(e.message, 'err'); }
 }
