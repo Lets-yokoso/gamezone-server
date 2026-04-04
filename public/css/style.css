@@ -200,6 +200,7 @@ select.field-input{cursor:pointer;background:var(--bg)}
 @media(max-width:1023px){
   html,body{overflow:auto!important;height:auto!important}
   .sidebar-col{display:none!important}
+  .pc-grid{gap:14px;padding:0 20px 20px}
   .page-groups .sidebar-col{display:flex!important;flex-direction:column!important}
   .page-groups .sidebar-header{display:flex!important}
   .app-layout{display:block;min-height:100dvh}
