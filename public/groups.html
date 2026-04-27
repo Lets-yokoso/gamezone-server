@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<title>GameZone — Groups</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="app" class="app-layout page-groups">
+  <div class="sidebar-col">
+    <div class="sidebar-header">
+      <div class="sidebar-brand"><div class="sidebar-brand-icon"><i class="fa-solid fa-gamepad"></i></div>GameZone</div>
+      <div class="sidebar-actions"><button class="icon-btn" onclick="doLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button></div>
+    </div>
+    <div id="expiry-banner" style="display:none;background:var(--amber-bg);border-bottom:1px solid var(--amber-bd);padding:9px 18px;align-items:center;gap:8px;font-size:11px;font-weight:600;color:var(--amber);flex-shrink:0">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>Subscription expires in <strong id="expiry-days">0</strong> days — contact your provider to renew</span>
+    </div>
+    <div class="scroll-area"><div class="screen-pad" id="groups-list"></div></div>
+    <button class="fab" data-action="newgroup" onclick="openSheet('sheet-newgroup')"><i class="fa-solid fa-plus"></i> New Group</button>
+  </div>
+</div>
+
+<div class="sheet-bg" id="bg-newgroup" onclick="closeSheet('sheet-newgroup')"></div>
+<div class="sheet" id="sheet-newgroup">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">New Group</div>
+  <div class="sheet-sub">Create a management group</div>
+  <div class="field"><label class="field-label">Name</label><input class="field-input" type="text" id="newgroup-name" placeholder="e.g. Main Cafe"></div>
+  <div class="sheet-btns">
+    <button class="btn btn-ghost" onclick="closeSheet('sheet-newgroup')">Cancel</button>
+    <button class="btn btn-primary" onclick="createGroup()"><span id="newgroup-btn-text">Create</span></button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/common.js"></script>
+<script>
+window.addEventListener('load', () => {
+  if (!requireAuth()) return;
+  loadGroups();
+  checkExpiryWarning();
+  applyPrefs();
+});
+
+async function loadGroups() {
+  try {
+    const me = await api('GET', '/me');
+    const user = COMMON.user;
+    if (user) {
+      user.status = me.status;
+      user.expiry_date = me.expiry_date;
+      COMMON.user = user;
+    }
+  } catch (e) { }
+  checkExpiryWarning();
+  const status = COMMON.user?.status || 'active';
+  if (status !== 'active') { renderGroups(); return; }
+  try {
+    const groups = await api('GET', '/groups');
+    window.groups = groups;
+    sessionStorage.setItem('gz_groups', JSON.stringify(groups));
+    renderGroups();
+  } catch (e) {
+    if (e.message === 'account_pending') { if (COMMON.user) COMMON.user.status = 'pending'; renderGroups(); }
+    else if (e.message === 'subscription_expired') { if (COMMON.user) COMMON.user.status = 'expired'; renderGroups(); }
+    else if (e.message === 'account_deactivated') { if (COMMON.user) COMMON.user.status = 'deactivated'; renderGroups(); }
+    else toast('Failed to load groups', 'err');
+  }
+}
+
+function renderGroups() {
+  const el = document.getElementById('groups-list');
+  const status = COMMON.user?.status || 'active';
+  if (status === 'pending') {
+    el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-clock" style="color:var(--amber)"></i></div><div class="empty-h">Account Pending Approval</div><div class="empty-p">Your account is awaiting approval from the provider.<br>Please contact them to get started.</div></div>';
+    return;
+  }
+  if (status === 'expired') {
+    el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-calendar-xmark" style="color:var(--red)"></i></div><div class="empty-h">Subscription Expired</div><div class="empty-p">Please contact your provider to renew your subscription.</div></div>';
+    return;
+  }
+  if (status === 'deactivated') {
+    el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-ban" style="color:var(--red)"></i></div><div class="empty-h">Account Deactivated</div><div class="empty-p">Your account has been deactivated. Please contact your provider.</div></div>';
+    return;
+  }
+  const groups = window.groups || [];
+  if (!groups.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-store"></i></div><div class="empty-h">No groups yet</div><div class="empty-p">Create your first group to get started</div></div>';
+    return;
+  }
+  el.innerHTML = groups.map(g =>
+    '<div class="group-item" onclick="openGroup(\'' + g.id + '\')">' +
+    '<div class="group-item-left">' +
+    '<div class="group-item-icon"><i class="fa-solid fa-network-wired"></i></div>' +
+    '<div><div class="group-item-name">' + escapeHtml(g.name) + '</div><div class="group-item-sub">Tap to manage</div></div>' +
+    '</div>' +
+    '<span class="group-item-arrow"><i class="fa-solid fa-chevron-right"></i></span>' +
+    '</div>'
+  ).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function createGroup() {
+  const name = document.getElementById('newgroup-name').value.trim();
+  if (!name) { toast('Enter a name', 'err'); return; }
+  document.getElementById('newgroup-btn-text').innerHTML = '<span class="spin"></span>';
+  try {
+    const g = await api('POST', '/groups', { name });
+    if (!window.groups) window.groups = [];
+    window.groups.push(g);
+    renderGroups();
+    closeSheet('sheet-newgroup');
+    document.getElementById('newgroup-name').value = '';
+    toast('Group created', 'ok');
+  } catch (e) { toast(e.message, 'err'); }
+  finally { document.getElementById('newgroup-btn-text').textContent = 'Create'; }
+}
+
+function openGroup(id) {
+  const group = (window.groups || []).find(g => g.id === id);
+  if (!group) return;
+  sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
+  window.location.href = '/dashboard';
+}
+</script>
+
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-message" id="modal-message"></div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="modal-confirm-btn" onclick="executeAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

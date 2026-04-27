@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<title>GameZone</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="app"></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-message" id="modal-message"></div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn confirm" id="modal-confirm-btn" onclick="executeAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/common.js"></script>
+<script src="/js/socket.js"></script>
+<script>
+(function() {
+  let currentView = null;
+  let socket = null;
+  window.pcs = [];
+  window.groups = [];
+  window.currentGroupId = null;
+  window.currentGroupName = null;
+  window.currentPcId = null;
+  window.currentPcName = null;
+  window.pc = null;
+  window._apps = [];
+  window._procs = [];
+  window._timerInterval = null;
+
+  function render() {
+    const hash = window.location.hash.slice(1) || '/login';
+    if (!COMMON.token && hash !== '/login') {
+      window.location.hash = '#/login';
+      return;
+    }
+    if (COMMON.token && hash === '/login') {
+      window.location.hash = '#/groups';
+      return;
+    }
+    const view = hash.replace(/^\//, '');
+    if (currentView === view) return;
+    currentView = view;
+    document.getElementById('app').innerHTML = '';
+    switch(view) {
+      case 'login': renderLogin(); break;
+      case 'groups': renderGroups(); break;
+      case 'dashboard': renderDashboard(); break;
+      case 'pc-control': renderPCControl(); break;
+      case 'settings': renderSettings(); break;
+      default: renderLogin();
+    }
+  }
+
+  window.navigateTo = function(view) {
+    window.location.hash = '#/' + view;
+  };
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function toast(msg, type) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'toast ' + (type || 'ok') + ' show';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  function openSheet(id) {
+    const sheet = document.getElementById(id);
+    const bg = document.getElementById('bg-' + id.replace('sheet-', ''));
+    if (sheet) sheet.classList.add('open');
+    if (bg) bg.classList.add('open');
+  }
+
+  function closeSheet(id) {
+    const sheet = document.getElementById(id);
+    const bg = document.getElementById('bg-' + id.replace('sheet-', ''));
+    if (sheet) sheet.classList.remove('open');
+    if (bg) bg.classList.remove('open');
+  }
+
+  function showModal(title, message, action) {
+    const titleEl = document.getElementById('modal-title');
+    const msgEl = document.getElementById('modal-message');
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (confirmBtn) {
+      confirmBtn.className = action === 'sleep' ? 'modal-btn confirm sleep' : 'modal-btn confirm';
+      confirmBtn.textContent = 'Confirm';
+    }
+    const modal = document.getElementById('confirm-modal');
+    if (modal) modal.classList.add('active');
+    window._modalState = { type: 'pc-action', action };
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('confirm-modal');
+    if (modal) modal.classList.remove('active');
+    window._modalState = null;
+  }
+
+  async function executeAction() {
+    const state = window._modalState;
+    if (!state) return closeModal();
+    closeModal();
+    try {
+      if (state.type === 'pc-action') {
+        await api('POST', '/pcs/' + window.currentPcId + '/' + state.action, { group_id: window.currentGroupId });
+        toast(state.action.charAt(0).toUpperCase() + state.action.slice(1) + ' command sent', 'ok');
+      } else if (state.type === 'delete') {
+        const target = state.target;
+        if (target.type === 'pc') {
+          await api('DELETE', '/groups/' + window.currentGroupId + '/pcs/' + target.id);
+          window.pcs = window.pcs.filter(p => p.id !== target.id);
+          document.getElementById('delete-pc-list').innerHTML = renderDeletePCList();
+          document.getElementById('reorder-pc-list').innerHTML = renderReorderPCList();
+          toast(target.name + ' deleted', 'ok');
+        } else if (target.type === 'group') {
+          await api('DELETE', '/groups/' + target.id);
+          toast('Group deleted', 'ok');
+          navigateTo('groups');
+        }
+      } else if (state.type === 'end-session') {
+        await confirmEndSessionAction();
+      } else if (state.type === 'kill-all') {
+        await killAllProcesses();
+      } else if (state.type === 'logout') {
+        localStorage.clear();
+        navigateTo('login');
+      } else if (state.type === 'remove-admin') {
+        await api('DELETE', '/groups/' + window.currentGroupId + '/admins/' + state.adminId);
+        loadAdmins();
+        toast(state.adminName + ' removed', 'ok');
+      }
+    } catch (e) {
+      toast(e.message || 'Command failed', 'err');
+    }
+  }
+
+  function confirmAction(action) {
+    if (!window.currentPcId) { toast('No PC selected', 'err'); return; }
+    window._modalState = { type: 'pc-action', action };
+    const pcName = window.currentPcName || 'PC';
+    if (action === 'sleep') {
+      showModal('Put PC to Sleep?', 'Put ' + pcName + ' to sleep?\n\n⚠️ This will interrupt any active session.', 'sleep');
+    } else if (action === 'shutdown') {
+      showModal('Shutdown PC?', 'Shutdown ' + pcName + '?\n\n⚠️ This will end all sessions and turn off the PC.\nThis cannot be undone.', 'shutdown');
+    }
+  }
+
+  function doLogout(silent) {
+    localStorage.clear();
+    if (silent) {
+      navigateTo('login');
+    } else {
+      window._modalState = { type: 'logout' };
+      showModal('Logout?', 'Are you sure you want to logout?', 'logout');
+    }
+  }
+
+  function fmtTime(secs) {
+    if (secs <= 0) return '00:00';
+    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+    if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  function getGroupRate(groupId) {
+    if (!groupId) return 5;
+    try { return JSON.parse(localStorage.getItem('gz_group_rates') || '{}')[groupId] || 5; } 
+    catch { return 5; }
+  }
+
+  function saveGroupRate(groupId, rate) {
+    try {
+      const rates = JSON.parse(localStorage.getItem('gz_group_rates') || '{}');
+      rates[groupId] = rate;
+      localStorage.setItem('gz_group_rates', JSON.stringify(rates));
+    } catch { toast('Failed to save', 'err'); }
+  }
+
+  function getSocket() { return socket; }
+
+  function connectSocket(groupId, token, callbacks) {
+    if (socket) socket.disconnect();
+    socket = io(COMMON.serverUrl, { transports: ['websocket'], reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 1000 });
+    socket.on('connect', () => { socket.emit('admin:subscribe', { group_id: groupId, token }); });
+    socket.on('group:' + groupId + ':pc-status', (data) => { if (callbacks.onStatus) callbacks.onStatus(data); });
+    socket.on('group:' + groupId + ':pc-session', (data) => { if (callbacks.onSession) callbacks.onSession(data); });
+    socket.on('admin:history-update', (data) => { if (callbacks.onHistory) callbacks.onHistory(data); });
+    return socket;
+  }
+
+  function disconnectSocket() {
+    if (socket) { socket.disconnect(); socket = null; }
+  }
+
+  const _LH_KEY = 'gz_history_';
+  function lhGet(pcId) { try { return JSON.parse(localStorage.getItem(_LH_KEY + pcId) || '[]'); } catch { return []; } }
+  function lhSet(pcId, entries) { localStorage.setItem(_LH_KEY + pcId, JSON.stringify(entries.slice(0, 5))); }
+  function lhAdd(pcId, entry) { const h = lhGet(pcId); h.unshift(entry); lhSet(pcId, h); }
+
+  function renderLogin() {
+    const err = document.getElementById('login-err') || '';
+    document.getElementById('app').innerHTML = '<div id="login-view" style="height:100dvh;display:flex;align-items:center;justify-content:center;overflow-y:auto">' +
+      '<div class="login-card">' +
+        '<div class="login-logo">' +
+          '<div class="login-logo-icon"><i class="fa-solid fa-gamepad"></i></div>' +
+          '<div><h1>GameZone</h1><p>PC Management System</p></div>' +
+        '</div>' +
+        '<div class="tab-row">' +
+          '<button class="tab-btn active" id="tab-login" onclick="switchTab(\'login\')"><i class="fa-solid fa-right-to-bracket"></i> Login</button>' +
+          '<button class="tab-btn" id="tab-register" onclick="switchTab(\'register\')"><i class="fa-solid fa-user-plus"></i> Register</button>' +
+        '</div>' +
+        '<div id="login-form">' +
+          '<div class="field"><label class="field-label">Server URL</label><input class="field-input" type="url" id="login-server" placeholder="https://..." autocomplete="off"></div>' +
+          '<div class="field"><label class="field-label">Username</label><input class="field-input" type="text" id="login-user" placeholder="Username" autocomplete="username"></div>' +
+          '<div class="field"><label class="field-label">Password</label><input class="field-input" type="password" id="login-pass" placeholder="Password" autocomplete="current-password"></div>' +
+          '<div style="height:8px"></div>' +
+          '<button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()"><span id="login-btn-text">Sign In</span></button>' +
+        '</div>' +
+        '<div id="register-form" style="display:none">' +
+          '<div class="field"><label class="field-label">Server URL</label><input class="field-input" type="url" id="reg-server" placeholder="https://..." autocomplete="off"></div>' +
+          '<div class="field"><label class="field-label">Username</label><input class="field-input" type="text" id="reg-user" placeholder="Username" autocomplete="username"></div>' +
+          '<div class="field"><label class="field-label">Password</label><input class="field-input" type="password" id="reg-pass" placeholder="Password" autocomplete="new-password"></div>' +
+          '<div style="height:8px"></div>' +
+          '<button class="btn btn-primary btn-full" id="reg-btn" onclick="doRegister()"><span id="reg-btn-text">Create Account</span></button>' +
+        '</div>' +
+        '<div id="login-err" style="display:none;margin-top:12px;color:var(--red);font-size:12px;text-align:center"></div>' +
+      '</div>' +
+    '</div>';
+    const saved = localStorage.getItem('gz_server') || '';
+    if (saved) { document.getElementById('login-server').value = saved; document.getElementById('reg-server').value = saved; }
+  }
+
+  window.switchTab = function(tab) {
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+    document.getElementById('login-err').style.display = 'none';
+  };
+
+  async function fetchWithTimeout(url, options, timeout) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout || 10000);
+    try { return await fetch(url, { ...options, signal: controller.signal }); }
+    finally { clearTimeout(id); }
+  }
+
+  window.doLogin = async function() {
+    const server = document.getElementById('login-server').value.trim().replace(/\/$/, '');
+    const username = document.getElementById('login-user').value.trim();
+    const password = document.getElementById('login-pass').value;
+    const err = document.getElementById('login-err');
+    if (!server || !username || !password) { err.textContent = 'Fill all fields'; err.style.display = 'block'; return; }
+    localStorage.setItem('gz_server', server);
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    document.getElementById('login-btn-text').innerHTML = '<span class="spin"></span>';
+    err.style.display = 'none';
+    try {
+      const res = await fetchWithTimeout(server + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }, 15000);
+      const d = await res.json();
+      if (d.error) throw new Error(d.error);
+      localStorage.setItem('gz_token', d.token);
+      localStorage.setItem('gz_user', JSON.stringify({ ...d.user, status: d.status || 'active', expiry_date: d.expiry_date || null }));
+      navigateTo('groups');
+    } catch (e) {
+      err.textContent = e.name === 'AbortError' ? 'Connection timed out' : e.message || 'Login failed';
+      err.style.display = 'block';
+    } finally { btn.disabled = false; document.getElementById('login-btn-text').textContent = 'Sign In'; }
+  };
+
+  window.doRegister = async function() {
+    const server = document.getElementById('reg-server').value.trim().replace(/\/$/, '');
+    const username = document.getElementById('reg-user').value.trim();
+    const password = document.getElementById('reg-pass').value;
+    const err = document.getElementById('login-err');
+    if (!server || !username || !password) { err.textContent = 'Fill all fields'; err.style.display = 'block'; return; }
+    localStorage.setItem('gz_server', server);
+    const btn = document.getElementById('reg-btn');
+    btn.disabled = true;
+    document.getElementById('reg-btn-text').innerHTML = '<span class="spin"></span>';
+    err.style.display = 'none';
+    try {
+      const res = await fetchWithTimeout(server + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) }, 15000);
+      const d = await res.json();
+      if (d.error) throw new Error(d.error);
+      localStorage.setItem('gz_token', d.token);
+      localStorage.setItem('gz_user', JSON.stringify({ ...d.user, status: d.status || 'pending', expiry_date: d.expiry_date || null }));
+      navigateTo('groups');
+    } catch (e) {
+      err.textContent = e.name === 'AbortError' ? 'Connection timed out' : e.message || 'Registration failed';
+      err.style.display = 'block';
+    } finally { btn.disabled = false; document.getElementById('reg-btn-text').textContent = 'Create Account'; }
+  };
+
+  async function loadGroups() {
+    try {
+      const me = await api('GET', '/me');
+      if (COMMON.user) {
+        COMMON.user.status = me.status;
+        COMMON.user.expiry_date = me.expiry_date;
+      }
+    } catch {}
+    const status = COMMON.user?.status || 'active';
+    if (status !== 'active') { renderGroupsList(); checkExpiryWarning(); return; }
+    try {
+      window.groups = await api('GET', '/groups');
+      sessionStorage.setItem('gz_groups', JSON.stringify(window.groups));
+      renderGroupsList();
+    } catch (e) {
+      if (e.message === 'account_pending') { if (COMMON.user) COMMON.user.status = 'pending'; }
+      else if (e.message === 'subscription_expired') { if (COMMON.user) COMMON.user.status = 'expired'; }
+      else if (e.message === 'account_deactivated') { if (COMMON.user) COMMON.user.status = 'deactivated'; }
+      else toast('Failed to load groups', 'err');
+      renderGroupsList();
+    }
+    checkExpiryWarning();
+  }
+
+  function renderGroupsList() {
+    const el = document.getElementById('groups-list');
+    const status = COMMON.user?.status || 'active';
+    if (status === 'pending') {
+      el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-clock" style="color:var(--amber)"></i></div><div class="empty-h">Account Pending Approval</div><div class="empty-p">Your account is awaiting approval from the provider.<br>Please contact them to get started.</div></div>';
+      return;
+    }
+    if (status === 'expired') {
+      el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-calendar-xmark" style="color:var(--red)"></i></div><div class="empty-h">Subscription Expired</div><div class="empty-p">Please contact your provider to renew your subscription.</div></div>';
+      return;
+    }
+    if (status === 'deactivated') {
+      el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-ban" style="color:var(--red)"></i></div><div class="empty-h">Account Deactivated</div><div class="empty-p">Your account has been deactivated. Please contact your provider.</div></div>';
+      return;
+    }
+    const groups = window.groups || [];
+    if (!groups.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-ico"><i class="fa-solid fa-store"></i></div><div class="empty-h">No groups yet</div><div class="empty-p">Create your first group to get started</div></div>';
+      return;
+    }
+    el.innerHTML = groups.map(g =>
+      '<div class="group-item" onclick="openGroup(\'' + g.id + '\')">' +
+      '<div class="group-item-left">' +
+      '<div class="group-item-icon"><i class="fa-solid fa-network-wired"></i></div>' +
+      '<div><div class="group-item-name">' + escapeHtml(g.name) + '</div><div class="group-item-sub">Tap to manage</div></div>' +
+      '</div>' +
+      '<span class="group-item-arrow"><i class="fa-solid fa-chevron-right"></i></span>' +
+      '</div>'
+    ).join('');
+  }
+
+  window.openGroup = function(id) {
+    const group = (window.groups || []).find(g => g.id === id);
+    if (!group) return;
+    sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
+    window.currentGroupId = group.id;
+    window.currentGroupName = group.name;
+    navigateTo('dashboard');
+  };
+
+  window.createGroup = async function() {
+    const name = document.getElementById('newgroup-name').value.trim();
+    if (!name) { toast('Enter a name', 'err'); return; }
+    document.getElementById('newgroup-btn-text').innerHTML = '<span class="spin"></span>';
+    try {
+      const g = await api('POST', '/groups', { name });
+      if (!window.groups) window.groups = [];
+      window.groups.push(g);
+      renderGroupsList();
+      closeSheet('sheet-newgroup');
+      document.getElementById('newgroup-name').value = '';
+      toast('Group created', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+    finally { document.getElementById('newgroup-btn-text').textContent = 'Create'; }
+  };
+
+  function checkExpiryWarning() {
+    const banner = document.getElementById('expiry-banner');
+    if (!banner) return;
+    const expiry = COMMON.user?.expiry_date;
+    if (!expiry) { banner.style.display = 'none'; return; }
+    const daysLeft = Math.ceil((expiry - Date.now()) / 86400000);
+    if (daysLeft > 0 && daysLeft <= 5) {
+      banner.style.display = 'flex';
+      document.getElementById('expiry-days').textContent = daysLeft;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  function renderGroups() {
+    document.getElementById('app').innerHTML = 
+      '<div id="app" class="app-layout page-groups">' +
+        '<div class="sidebar-col">' +
+          '<div class="sidebar-header">' +
+            '<div class="sidebar-brand"><div class="sidebar-brand-icon"><i class="fa-solid fa-gamepad"></i></div>GameZone</div>' +
+            '<div class="sidebar-actions"><button class="icon-btn" onclick="doLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button></div>' +
+          '</div>' +
+          '<div id="expiry-banner" style="display:none;background:var(--amber-bg);border-bottom:1px solid var(--amber-bd);padding:9px 18px;align-items:center;gap:8px;font-size:11px;font-weight:600;color:var(--amber);flex-shrink:0">' +
+            '<i class="fa-solid fa-triangle-exclamation"></i>' +
+            '<span>Subscription expires in <strong id="expiry-days">0</strong> days — contact your provider to renew</span>' +
+          '</div>' +
+          '<div class="scroll-area"><div class="screen-pad" id="groups-list"></div></div>' +
+          '<button class="fab" data-action="newgroup" onclick="openSheet(\'sheet-newgroup\')"><i class="fa-solid fa-plus"></i> New Group</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-newgroup" onclick="closeSheet(\'sheet-newgroup\')"></div>' +
+      '<div class="sheet" id="sheet-newgroup">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title">New Group</div>' +
+        '<div class="sheet-sub">Create a management group</div>' +
+        '<div class="field"><label class="field-label">Name</label><input class="field-input" type="text" id="newgroup-name" placeholder="e.g. Main Cafe"></div>' +
+        '<div class="sheet-btns">' +
+          '<button class="btn btn-ghost" onclick="closeSheet(\'sheet-newgroup\')">Cancel</button>' +
+          '<button class="btn btn-primary" onclick="createGroup()"><span id="newgroup-btn-text">Create</span></button>' +
+        '</div>' +
+      '</div>';
+    loadGroups();
+  }
+
+  async function loadPCs() {
+    try {
+      window.pcs = await api('GET', '/groups/' + window.currentGroupId + '/pcs');
+      const needsOrder = window.pcs.some(p => p.order === undefined || p.order === null);
+      if (needsOrder) {
+        window.pcs.forEach((pc, i) => pc.order = i);
+        await api('POST', '/groups/' + window.currentGroupId + '/pcs/reorder', { order: window.pcs.map((pc, i) => ({ pc_id: pc.id, order: i })) }).catch(() => {});
+      }
+      renderPCGrid();
+      renderSidebarGroups();
+      applyPrefs();
+    } catch { toast('Failed to load PCs', 'err'); }
+  }
+
+  function renderPCGrid() {
+    const now = Math.floor(Date.now() / 1000);
+    const pcs = window.pcs || [];
+    const online = pcs.filter(p => p.is_online).length;
+    const active = pcs.filter(p => p.session_end > now || p.stopwatch_start > 0).length;
+    document.getElementById('stat-total').textContent = pcs.length;
+    document.getElementById('stat-online').textContent = online;
+    document.getElementById('stat-active').textContent = active;
+    const grid = document.getElementById('pc-grid');
+    if (!pcs.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1"><div class="empty"><div class="empty-ico"><i class="fa-solid fa-desktop"></i></div><div class="empty-h">No PCs yet</div><div class="empty-p">Tap "+ Add PC" to register one</div></div></div>';
+      return;
+    }
+    grid.innerHTML = pcs.map(pc => {
+      const left = pc.session_end > now ? pc.session_end - now : 0;
+      const isWatch = pc.stopwatch_start > 0;
+      const col = !pc.is_online ? 'var(--t3)' : isWatch ? 'var(--blue)' : left > 300 ? 'var(--green)' : left > 0 ? 'var(--amber)' : 'var(--red)';
+      const bg = !pc.is_online ? 'var(--s3)' : isWatch ? 'var(--blue-bg)' : left > 300 ? 'var(--green-bg)' : left > 0 ? 'var(--amber-bg)' : 'var(--red-bg)';
+      const bd = !pc.is_online ? 'var(--bd)' : isWatch ? 'var(--blue-bd)' : left > 300 ? 'var(--green-bd)' : left > 0 ? 'var(--amber-bd)' : 'var(--red-bd)';
+      const hasSession = left > 0 || isWatch;
+      const status = !hasSession ? (pc.is_online ? 'Idle' : 'Offline') : isWatch ? 'Free' : 'Active';
+      const elapsed = isWatch ? now - pc.stopwatch_start : 0;
+      const timer = !hasSession ? (pc.is_online ? '--:--' : '- - -') : isWatch ? fmtTime(elapsed) : fmtTime(left);
+      const pay = pc.payment_status || '';
+      const payBadge = pay === 'paid' ? '<span class="pay-badge" style="background:var(--green-bg);color:var(--green)"><i class="fa-solid fa-check"></i> Paid</span>' : pay === 'unpaid' ? '<span class="pay-badge" style="background:var(--red-bg);color:var(--red)"><i class="fa-solid fa-xmark"></i> Unpaid</span>' : '';
+      return '<div class="pc-card" data-pc-id="' + pc.id + '" onclick="openPC(\'' + pc.id + '\')" style="--pc-color:' + col + ';--pc-bg:' + bg + ';--pc-bd:' + bd + '">' +
+        '<div class="pc-card-top"><div class="pc-card-name"><i class="fa-solid fa-computer"></i>' + escapeHtml(pc.name) + '</div><div class="pc-dot"></div></div>' +
+        '<div class="pc-timer">' + timer + '</div>' +
+        '<div class="pc-footer"><span class="pc-badge">' + status + '</span>' + payBadge + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderSidebarGroups() {
+    const el = document.getElementById('sidebar-groups');
+    if (!el) return;
+    try {
+      const groups = JSON.parse(sessionStorage.getItem('gz_groups') || '[]');
+      if (!groups.length) { el.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-p">No groups</div></div>'; return; }
+      el.innerHTML = groups.map(g =>
+        '<div class="group-item" onclick="switchGroup(\'' + g.id + '\')" style="' + (g.id === window.currentGroupId ? 'background:var(--s2)' : '') + '">' +
+        '<div class="group-item-left">' +
+        '<div class="group-item-icon"><i class="fa-solid fa-network-wired"></i></div>' +
+        '<div><div class="group-item-name">' + escapeHtml(g.name) + '</div></div>' +
+        '</div></div>'
+      ).join('');
+    } catch {}
+  }
+
+  window.switchGroup = function(id) {
+    api('GET', '/groups').then(groups => {
+      sessionStorage.setItem('gz_groups', JSON.stringify(groups));
+      const group = groups.find(g => g.id === id);
+      if (group) {
+        sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
+        window.currentGroupId = group.id;
+        window.currentGroupName = group.name;
+        navigateTo('dashboard');
+      }
+    }).catch(() => navigateTo('groups'));
+  };
+
+  function updateTimers() {
+    const now = Math.floor(Date.now() / 1000);
+    document.querySelectorAll('.pc-card').forEach(cardEl => {
+      const pcId = cardEl.getAttribute('data-pc-id');
+      if (!pcId) return;
+      const pc = window.pcs.find(p => p.id === pcId);
+      if (!pc) return;
+      const left = pc.session_end > now ? pc.session_end - now : 0;
+      const isWatch = pc.stopwatch_start > 0;
+      const elapsed = isWatch ? now - pc.stopwatch_start : 0;
+      const timerEl = cardEl.querySelector('.pc-timer');
+      if (timerEl) timerEl.textContent = isWatch ? fmtTime(elapsed) : left > 0 ? fmtTime(left) : '--:--';
+      const col = !pc.is_online ? 'var(--t3)' : isWatch ? 'var(--blue)' : left > 300 ? 'var(--green)' : left > 0 ? 'var(--amber)' : 'var(--red)';
+      const bg = !pc.is_online ? 'var(--s3)' : isWatch ? 'var(--blue-bg)' : left > 300 ? 'var(--green-bg)' : left > 0 ? 'var(--amber-bg)' : 'var(--red-bg)';
+      const bd = !pc.is_online ? 'var(--bd)' : isWatch ? 'var(--blue-bd)' : left > 300 ? 'var(--green-bd)' : left > 0 ? 'var(--amber-bd)' : 'var(--red-bd)';
+      cardEl.style.setProperty('--pc-color', col);
+      cardEl.style.setProperty('--pc-bg', bg);
+      cardEl.style.setProperty('--pc-bd', bd);
+      const badge = cardEl.querySelector('.pc-badge');
+      if (badge) {
+        const hasSession = left > 0 || isWatch;
+        const status = !hasSession ? (pc.is_online ? 'Idle' : 'Offline') : isWatch ? 'Free' : 'Active';
+        badge.textContent = status;
+        badge.style.color = col;
+        badge.style.background = bg;
+        badge.style.borderColor = bd;
+      }
+    });
+  }
+
+  function handleStatusUpdate(data) {
+    const pc = window.pcs.find(p => p.id === data.pc_id);
+    if (pc) { pc.is_online = data.is_online ? 1 : 0; renderPCGrid(); }
+  }
+
+  function handleSessionUpdate(data) {
+    const pc = window.pcs.find(p => p.id === data.pc_id);
+    if (!pc) return;
+    if ('session_end' in data) pc.session_end = data.session_end;
+    if ('stopwatch_start' in data) pc.stopwatch_start = data.stopwatch_start;
+    if ('payment_status' in data) pc.payment_status = data.payment_status;
+    renderPCGrid();
+  }
+
+  window.addPC = async function() {
+    const name = document.getElementById('addpc-name').value.trim();
+    const password = document.getElementById('addpc-pass').value;
+    if (!name || !password) { toast('Name and password required', 'err'); return; }
+    document.getElementById('addpc-btn-text').innerHTML = '<span class="spin"></span>';
+    try {
+      const pc = await api('POST', '/groups/' + window.currentGroupId + '/pcs', { name, password });
+      window.pcs.push(pc);
+      renderPCGrid();
+      closeSheet('sheet-addpc');
+      document.getElementById('addpc-name').value = '';
+      document.getElementById('addpc-pass').value = '';
+      toast('PC added', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+    finally { document.getElementById('addpc-btn-text').textContent = 'Add PC'; }
+  };
+
+  window.openPC = function(id) {
+    const pc = window.pcs.find(p => p.id === id);
+    if (!pc) return;
+    sessionStorage.setItem('gz_activePc', JSON.stringify(pc));
+    sessionStorage.setItem('gz_activeGroupId', window.currentGroupId);
+    window.currentPcId = pc.id;
+    window.currentPcName = pc.name;
+    window.pc = pc;
+    navigateTo('pc-control');
+  };
+
+  function getPrefs() { try { return JSON.parse(localStorage.getItem('gz_prefs') || '{}'); } catch { return {}; } }
+  function applyPrefs() {
+    const prefs = getPrefs();
+    const addGroupFab = document.querySelector('.fab[data-action="newgroup"]');
+    const addPcFab = document.querySelector('.fab[data-action="addpc"]');
+    if (addGroupFab) addGroupFab.style.display = prefs.hideAddGroup ? 'none' : '';
+    if (addPcFab) addPcFab.style.display = prefs.hideAddPC ? 'none' : '';
+  }
+
+  function renderDashboard() {
+    const group = JSON.parse(sessionStorage.getItem('gz_activeGroup') || 'null');
+    if (!group) { navigateTo('groups'); return; }
+    window.currentGroupId = group.id;
+    window.currentGroupName = group.name;
+    document.getElementById('app').innerHTML = 
+      '<div id="app" class="app-layout">' +
+        '<div class="sidebar-col">' +
+          '<div class="sidebar-header">' +
+            '<div class="sidebar-brand"><div class="sidebar-brand-icon"><i class="fa-solid fa-gamepad"></i></div>GameZone</div>' +
+            '<div class="sidebar-actions"><button class="icon-btn" onclick="doLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button></div>' +
+          '</div>' +
+          '<div class="topbar"><div class="topbar-title">Groups</div><button class="icon-btn" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i></button></div>' +
+          '<div class="scroll-area"><div class="screen-pad" id="sidebar-groups"></div></div>' +
+        '</div>' +
+        '<div class="main-col">' +
+          '<div class="topbar">' +
+            '<button class="back-btn" onclick="navigateTo(\'groups\')"><i class="fa-solid fa-chevron-left"></i> Back</button>' +
+            '<div class="topbar-title" id="dash-title">' + escapeHtml(group.name) + '</div>' +
+            '<button class="icon-btn" onclick="navigateTo(\'settings\')"><i class="fa-solid fa-gear"></i></button>' +
+          '</div>' +
+          '<div class="main-content scroll-area">' +
+            '<div class="scroll-inner">' +
+              '<div class="stats-row">' +
+                '<div class="stat-box"><div class="stat-val" id="stat-total">0</div><div class="stat-key">Total</div></div>' +
+                '<div class="stat-box"><div class="stat-val" id="stat-online" style="color:var(--green)">0</div><div class="stat-key">Online</div></div>' +
+                '<div class="stat-box"><div class="stat-val" id="stat-active" style="color:var(--amber)">0</div><div class="stat-key">Active</div></div>' +
+              '</div>' +
+              '<div class="pc-grid" id="pc-grid"></div>' +
+            '</div>' +
+          '</div>' +
+          '<button class="fab" data-action="addpc" onclick="openSheet(\'sheet-addpc\')"><i class="fa-solid fa-plus"></i> Add PC</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-addpc" onclick="closeSheet(\'sheet-addpc\')"></div>' +
+      '<div class="sheet" id="sheet-addpc">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title">Add PC</div>' +
+        '<div class="sheet-sub">Register a new computer to this group</div>' +
+        '<div class="field"><label class="field-label">PC Name</label><input class="field-input" type="text" id="addpc-name" placeholder="e.g. PC-01"></div>' +
+        '<div class="field"><label class="field-label">Password</label><input class="field-input" type="password" id="addpc-pass" placeholder="Set access password"></div>' +
+        '<div class="sheet-btns">' +
+          '<button class="btn btn-ghost" onclick="closeSheet(\'sheet-addpc\')">Cancel</button>' +
+          '<button class="btn btn-primary" onclick="addPC()"><span id="addpc-btn-text">Add PC</span></button>' +
+        '</div>' +
+      '</div>';
+    loadPCs();
+    connectSocket(window.currentGroupId, COMMON.token, { onStatus: handleStatusUpdate, onSession: handleSessionUpdate });
+    window._timerInterval = setInterval(updateTimers, 1000);
+  }
+
+  function updateOnlinePill() {
+    const pc = window.pc;
+    if (!pc) return;
+    const pill = document.getElementById('pc-pill');
+    if (pc.is_online) {
+      pill.innerHTML = '<span class="dot" style="background:var(--green)"></span> Online';
+      pill.style.cssText = 'color:var(--green);border-color:var(--green-bd);background:var(--green-bg)';
+    } else {
+      pill.innerHTML = '<span class="dot" style="background:var(--t3)"></span> Offline';
+      pill.style.cssText = '';
+    }
+  }
+
+  function renderPCActions() {
+    const pc = window.pc;
+    if (!pc) return;
+    const now = Math.floor(Date.now() / 1000);
+    const left = pc.session_end > now ? pc.session_end - now : 0;
+    const isWatch = pc.stopwatch_start > 0;
+    const isActive = left > 0 || isWatch;
+    const pay = pc.payment_status || null;
+    const timerArea = document.getElementById('pc-timer-area');
+    const col = isActive ? (isWatch ? 'var(--blue)' : left <= 30 ? 'var(--red)' : left <= 60 ? 'var(--amber)' : 'var(--green)') : 'var(--t3)';
+    const val = isActive ? (isWatch ? fmtTime(now - pc.stopwatch_start) : fmtTime(left)) : '--:--';
+    timerArea.innerHTML = '<div class="timer-card">' +
+      '<div class="timer-big" style="color:' + col + '">' + val + '</div>' +
+      '<div class="pay-col">' +
+      '<button class="pay-btn ' + (pay === 'paid' ? 'paid' : '') + '" onclick="togglePay(\'paid\')"><i class="fa-solid fa-check"></i> Paid</button>' +
+      '<button class="pay-btn ' + (pay === 'unpaid' ? 'unpaid' : '') + '" onclick="togglePay(\'unpaid\')"><i class="fa-solid fa-xmark"></i> Unpaid</button>' +
+      '</div></div>';
+    const sessionArea = document.getElementById('pc-session-area');
+    let html = '';
+    if (isActive) {
+      html += '<div class="section-head">Session Control</div>' +
+        '<div class="action-grid cols3" style="margin-bottom:20px">' +
+        '<div class="action-card" onclick="openSheet(\'sheet-addtime\')"><div class="action-card-icon"><i class="fa-solid fa-circle-plus" style="color:var(--green)"></i></div><div class="action-card-label">Add Time</div></div>' +
+        '<div class="action-card" onclick="openSheet(\'sheet-removetime\')"><div class="action-card-icon"><i class="fa-solid fa-circle-minus" style="color:var(--amber)"></i></div><div class="action-card-label">Remove</div></div>' +
+        '<div class="action-card" onclick="confirmEndSession()"><div class="action-card-icon"><i class="fa-solid fa-stop" style="color:var(--red)"></i></div><div class="action-card-label">End</div></div>' +
+        '</div>';
+    } else {
+      html += '<div class="section-head">Session Control</div>' +
+        '<div class="action-grid cols1" style="margin-bottom:20px">' +
+        '<div class="action-card" onclick="openSheet(\'sheet-startsession\')">' +
+        '<div class="action-card-icon"><i class="fa-solid fa-play" style="color:var(--green)"></i></div>' +
+        '<div class="action-card-label">Start Session</div>' +
+        '<div class="action-card-sub">Timed or free timer</div>' +
+        '</div></div>';
+    }
+    const history = lhGet(pc.id);
+    html += '<div class="section-head" style="justify-content:space-between;margin-top:20px">Recent Activity ' +
+      '<button onclick="refreshHistory()" style="margin-left:auto;background:var(--s3);border:1px solid var(--bd2);color:var(--t2);cursor:pointer;font-size:10px;font-family:var(--sans);display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:var(--r);letter-spacing:0;text-transform:none;font-weight:600;transition:all .15s" onmouseover="this.style.color=\'var(--t1)\'" onmouseout="this.style.color=\'var(--t2)\'"><i class="fa-solid fa-rotate" style="font-size:10px"></i> Refresh</button></div>' +
+      '<div class="action-grid" style="padding-bottom:0;margin-bottom:20px;display:block">' +
+      '<div style="background:var(--s1);border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden">';
+    if (history && history.length > 0) {
+      history.forEach(entry => {
+        const isSession = entry.type === 'session';
+        const isFree = isSession && entry.mode === 'free';
+        const isEnded = entry.status === 'ended';
+        let valStr, label, icon;
+        if (isSession) {
+          if (isFree) { icon = '⏱'; label = isEnded ? 'Free Session (ended)' : 'Free Session'; valStr = isEnded && entry.elapsed ? entry.elapsed + 'm' : 'FREE'; }
+          else { icon = '⏰'; const totalMins = (entry.minutes || 0) + (entry.added_minutes || 0); label = isEnded ? 'Session (ended)' : 'Session'; valStr = totalMins + 'm'; }
+        } else {
+          const isAdd = entry.type === 'add';
+          icon = isAdd ? '+' : '-';
+          valStr = (isAdd ? '+' : '-') + Math.abs(entry.mins) + 'm';
+          label = isAdd ? 'Added' : 'Removed';
+        }
+        const col2 = isFree ? 'var(--blue)' : 'var(--green)';
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd)">' +
+          '<span style="font-size:13px;font-weight:700;color:' + col2 + ';font-family:var(--mono)">' + icon + ' ' + escapeHtml(valStr) + '</span>' +
+          '<span style="font-size:11px;color:var(--t3)">' + escapeHtml(label) + '</span>' +
+          (isEnded ? '<span style="font-size:9px;color:var(--t3);margin-left:auto">(ended)</span>' : '') +
+          '</div>';
+      });
+    } else {
+      html += '<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">No recent activity</div>';
+    }
+    html += '</div></div>';
+    sessionArea.innerHTML = html;
+  }
+
+  function updateTimer() {
+    const pc = window.pc;
+    if (!pc) return;
+    const now = Math.floor(Date.now() / 1000);
+    const left = pc.session_end > now ? pc.session_end - now : 0;
+    const isWatch = pc.stopwatch_start > 0;
+    const elapsed = isWatch ? now - pc.stopwatch_start : 0;
+    const timerBig = document.querySelector('.timer-big');
+    if (timerBig) timerBig.textContent = isWatch ? fmtTime(elapsed) : (left > 0 ? fmtTime(left) : '--:--');
+  }
+
+  window.togglePay = async function(status) {
+    const id = window.currentPcId;
+    const newStatus = window.pc.payment_status === status ? null : status;
+    try {
+      await api('POST', '/pcs/' + id + '/payment', { payment_status: newStatus, group_id: window.currentGroupId });
+      window.pc.payment_status = newStatus;
+      renderPCActions();
+      toast(newStatus ? 'Marked ' + newStatus : 'Payment cleared', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  window.startSession = async function(mins) {
+    closeSheet('sheet-startsession');
+    try {
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/session/start', { duration_minutes: mins, group_id: window.currentGroupId });
+      window.pc.session_end = r.session_end;
+      window.pc.stopwatch_start = 0;
+      lhAdd(window.currentPcId, { type: 'session', mode: 'paid', session_id: r.session_id || Date.now().toString(), minutes: mins, added_minutes: 0, started_at: Date.now(), ended_at: null, status: 'active' });
+      toast('Session started', 'ok');
+      renderPCActions();
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  window.startStopwatch = async function() {
+    closeSheet('sheet-startsession');
+    try {
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/session/stopwatch', { group_id: window.currentGroupId });
+      window.pc.stopwatch_start = r.started_at;
+      window.pc.session_end = 0;
+      lhAdd(window.currentPcId, { type: 'session', mode: 'free', session_id: r.session_id || Date.now().toString(), minutes: 0, added_minutes: 0, started_at: Date.now(), ended_at: null, status: 'active' });
+      toast('Free timer started', 'ok');
+      renderPCActions();
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  window.startSessionByAmount = async function() {
+    const amount = parseFloat(document.getElementById('session-amount').value);
+    const mins = parseInt(document.getElementById('session-mins').value) || 0;
+    if (!amount && !mins) { toast('Enter amount or minutes', 'err'); return; }
+    closeSheet('sheet-startsession');
+    let totalMins = mins;
+    if (amount && amount > 0) {
+      const rate = getGroupRate(window.currentGroupId);
+      totalMins += Math.floor((amount / rate) * 60);
+    }
+    if (totalMins < 1) { toast('Duration too low', 'err'); return; }
+    try {
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/session/start', { duration_minutes: totalMins, group_id: window.currentGroupId });
+      window.pc.session_end = r.session_end;
+      window.pc.stopwatch_start = 0;
+      lhAdd(window.currentPcId, { type: 'session', mode: 'paid', session_id: r.session_id || Date.now().toString(), minutes: totalMins, added_minutes: 0, started_at: Date.now(), ended_at: null, status: 'active' });
+      document.getElementById('session-amount').value = '';
+      document.getElementById('session-mins').value = '';
+      toast('Session started: ' + totalMins + 'm', 'ok');
+      renderPCActions();
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  window.addTime = async function(mins) {
+    closeSheet('sheet-addtime');
+    try {
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/session/add-time', { minutes: mins, group_id: window.currentGroupId });
+      if (r.stopwatch_start !== undefined) { window.pc.stopwatch_start = r.stopwatch_start; } else { window.pc.session_end = r.session_end; }
+      toast('+' + mins + 'm added', 'ok');
+      renderPCActions();
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  window.addTimeByAmount = async function() {
+    const amount = parseFloat(document.getElementById('add-amount').value);
+    const mins = parseInt(document.getElementById('add-mins').value) || 0;
+    if (!amount && !mins) { toast('Enter amount or minutes', 'err'); return; }
+    closeSheet('sheet-addtime');
+    if (amount && amount > 0) {
+      const rate = getGroupRate(window.currentGroupId);
+      const calcMins = Math.floor((amount / rate) * 60);
+      if (calcMins < 1) { toast('Amount too low', 'err'); return; }
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/session/add-time', { minutes: calcMins, group_id: window.currentGroupId });
+      if (r.stopwatch_start !== undefined) { window.pc.stopwatch_start = r.stopwatch_start; } else { window.pc.session_end = r.session_end; }
+      toast('Added: $' + amount.toFixed(2) + ' = ' + calcMins + 'm', 'ok');
+    } else if (mins && mins > 0) {
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/session/add-time', { minutes: mins, group_id: window.currentGroupId });
+      if (r.stopwatch_start !== undefined) { window.pc.stopwatch_start = r.stopwatch_start; } else { window.pc.session_end = r.session_end; }
+      toast('Added: ' + mins + 'm', 'ok');
+    }
+    document.getElementById('add-amount').value = '';
+    document.getElementById('add-mins').value = '';
+    renderPCActions();
+  };
+
+  window.removeTime = async function(mins) {
+    closeSheet('sheet-removetime');
+    try {
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/session/add-time', { minutes: -mins, group_id: window.currentGroupId });
+      if (r.session_ended) {
+        window.pc.session_end = 0;
+        window.pc.stopwatch_start = 0;
+        toast('Session ended — time exceeded', 'ok');
+      } else {
+        window.pc.session_end = r.session_end;
+        toast('-' + mins + 'm removed', 'ok');
+      }
+      renderPCActions();
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  window.confirmEndSession = function() {
+    showModal('End Session?', 'End session on ' + escapeHtml(window.pc.name) + '?\n\n⚠️ Screen will lock immediately.', 'end-session');
+    document.getElementById('modal-confirm-btn').textContent = 'End Session';
+    window._modalState = { type: 'end-session' };
+  };
+
+  async function confirmEndSessionAction() {
+    try {
+      await api('POST', '/pcs/' + window.currentPcId + '/session/end', { group_id: window.currentGroupId });
+      window.pc.session_end = 0;
+      window.pc.stopwatch_start = 0;
+      toast('Session ended', 'ok');
+      renderPCActions();
+    } catch (e) { toast(e.message, 'err'); }
+  }
+
+  window.pcCmd = async function(action) {
+    try {
+      await api('POST', '/pcs/' + window.currentPcId + '/' + action, { group_id: window.currentGroupId });
+      toast(action === 'lock' ? 'Screen locked' : 'Screen unlocked', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
+  };
+
+  window.openApps = async function() {
+    document.getElementById('apps-pc-name').textContent = 'on ' + window.pc.name;
+    document.getElementById('apps-list').innerHTML = '<div style="text-align:center;padding:28px"><span class="spin"></span></div>';
+    openSheet('sheet-apps');
+    try {
+      const apps = await api('GET', '/pcs/' + window.currentPcId + '/apps');
+      window._apps = apps;
+      if (!apps.length) { document.getElementById('apps-list').innerHTML = '<div style="color:var(--t2);text-align:center;padding:28px;font-size:12px">No shortcuts found.<br>Add .lnk files to the shortcuts folder.</div>'; return; }
+      document.getElementById('apps-list').innerHTML = apps.map((a, i) => '<div class="app-row"><div class="app-name"><i class="fa-solid fa-file"></i>' + escapeHtml(a.name) + '</div><button class="launch-btn" onclick="launchApp(' + i + ')"><i class="fa-solid fa-play"></i> Launch</button></div>').join('');
+    } catch { document.getElementById('apps-list').innerHTML = '<div style="color:var(--red);text-align:center;padding:20px">Failed to load apps</div>'; }
+  };
+
+  window.openKillSheet = async function() {
+    document.getElementById('killtasks-pc-name').textContent = 'on ' + window.pc.name;
+    document.getElementById('killtasks-list').innerHTML = '<div style="text-align:center;padding:28px"><span class="spin"></span><div style="color:var(--t3);font-size:11px;margin-top:10px">Fetching running processes...</div></div>';
+    openSheet('sheet-killtasks');
+    try {
+      const r = await api('POST', '/pcs/' + window.currentPcId + '/processes', { group_id: window.currentGroupId });
+      window._procs = r.processes || [];
+      if (!window._procs.length) { document.getElementById('killtasks-list').innerHTML = '<div style="color:var(--t2);text-align:center;padding:28px;font-size:12px">No user processes found<br>or PC client is offline</div>'; return; }
+      document.getElementById('killtasks-list').innerHTML = window._procs.map((p, i) =>
+        '<div class="app-row"><div class="app-name"><i class="fa-solid fa-microchip" style="color:var(--t3)"></i><div><div style="font-size:13px;font-weight:600">' + escapeHtml(p.display) + '</div><div style="font-size:10px;color:var(--t3)">' + escapeHtml(String(p.mem)) + ' MB</div></div></div>' +
+        '<button class="launch-btn" style="background:var(--red-bg);border-color:var(--red-bd);color:var(--red)" onclick="killProcess(' + i + ')"><i class="fa-solid fa-xmark"></i> Kill</button></div>'
+      ).join('');
+    } catch { document.getElementById('killtasks-list').innerHTML = '<div style="color:var(--red);text-align:center;padding:20px">Failed to fetch processes</div>'; }
+  };
+
+  window.killAllProcesses = async function() {
+    const procs = window._procs.slice();
+    const results = await Promise.allSettled(procs.map(proc => api('POST', '/pcs/' + window.currentPcId + '/kill-process', { pid: proc.pid, name: proc.name, group_id: window.currentGroupId })));
+    window._procs = [];
+    const failed = results.filter(r => r.status === 'rejected').length;
+    document.getElementById('killtasks-list').innerHTML = '<div style="color:var(--green);text-align:center;padding:28px;font-size:12px">All processes killed' + (failed ? ' (' + failed + ' failed)' : '') + '</div>';
+    toast('All processes killed' + (failed ? ' (' + failed + ' failed)' : ''), 'ok');
+  };
+
+  window.killProcess = async function(i) {
+    const proc = window._procs?.[i];
+    if (!proc) return;
+    try {
+      await api('POST', '/pcs/' + window.currentPcId + '/kill-process', { pid: proc.pid, name: proc.name, group_id: window.currentGroupId });
+      window._procs.splice(i, 1);
+      toast(proc.display + ' killed', 'ok');
+      if (!window._procs.length) closeSheet('sheet-killtasks');
+      else openKillSheet();
+    } catch { toast(e.message, 'err'); }
+  };
+
+  window.launchApp = async function(i) {
+    const app = window._apps?.[i];
+    if (!app) return;
+    closeSheet('sheet-apps');
+    try { await api('POST', '/pcs/' + window.currentPcId + '/launch', { app_path: app.path, group_id: window.currentGroupId }); toast(app.name + ' launched', 'ok'); }
+    catch { toast(e.message, 'err'); }
+  };
+
+  window.refreshHistory = function() {
+    const sock = getSocket();
+    if (sock && window.currentGroupId) {
+      sock.emit('admin:request-history', { group_id: window.currentGroupId, pc_id: window.currentPcId });
+      toast('Refreshing...', 'ok');
+    } else {
+      renderPCActions();
+      toast('Refreshed', 'ok');
+    }
+  };
+
+  function renderPCControl() {
+    const pc = JSON.parse(sessionStorage.getItem('gz_activePc') || 'null');
+    const groupId = sessionStorage.getItem('gz_activeGroupId');
+    if (!pc || !groupId) { navigateTo('dashboard'); return; }
+    window.currentPcId = pc.id;
+    window.currentPcName = pc.name;
+    window.currentGroupId = groupId;
+    window.pc = pc;
+    document.getElementById('app').innerHTML = 
+      '<div id="app" class="app-layout">' +
+        '<div class="sidebar-col">' +
+          '<div class="sidebar-header">' +
+            '<div class="sidebar-brand"><div class="sidebar-brand-icon"><i class="fa-solid fa-gamepad"></i></div>GameZone</div>' +
+            '<div class="sidebar-actions"><button class="icon-btn" onclick="doLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button></div>' +
+          '</div>' +
+          '<div class="topbar"><div class="topbar-title">Groups</div><button class="icon-btn" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i></button></div>' +
+          '<div class="scroll-area"><div class="screen-pad" id="sidebar-groups"></div></div>' +
+        '</div>' +
+        '<div class="main-col">' +
+          '<div class="topbar">' +
+            '<button class="back-btn" onclick="navigateTo(\'dashboard\')"><i class="fa-solid fa-chevron-left"></i></button>' +
+            '<div class="topbar-title" id="pc-title">' + escapeHtml(pc.name) + '</div>' +
+            '<div id="pc-pill" class="status-pill"></div>' +
+          '</div>' +
+          '<div class="main-content scroll-area">' +
+            '<div class="scroll-inner">' +
+              '<div style="height:16px"></div>' +
+              '<div id="pc-timer-area"></div>' +
+              '<div class="section-head">Screen Control</div>' +
+              '<div class="action-grid" style="margin-bottom:20px">' +
+                '<div class="action-card" onclick="pcCmd(\'lock\')"><div class="action-card-icon"><i class="fa-solid fa-lock" style="color:var(--amber)"></i></div><div class="action-card-label">Lock</div></div>' +
+                '<div class="action-card" onclick="pcCmd(\'unlock\')"><div class="action-card-icon"><i class="fa-solid fa-lock-open" style="color:var(--green)"></i></div><div class="action-card-label">Unlock</div></div>' +
+                '<div class="action-card" onclick="confirmAction(\'sleep\')"><div class="action-card-icon"><i class="fa-solid fa-moon" style="color:var(--blue)"></i></div><div class="action-card-label">Sleep</div></div>' +
+                '<div class="action-card" onclick="confirmAction(\'shutdown\')"><div class="action-card-icon"><i class="fa-solid fa-power-off" style="color:var(--red)"></i></div><div class="action-card-label">Shutdown</div></div>' +
+              '</div>' +
+              '<div class="section-head">Applications</div>' +
+              '<div class="action-grid" style="margin-bottom:20px">' +
+                '<div class="action-card" onclick="openApps()"><div class="action-card-icon"><i class="fa-solid fa-rocket" style="color:var(--blue)"></i></div><div class="action-card-label">Launch App</div><div class="action-card-sub">Open remotely</div></div>' +
+                '<div class="action-card" onclick="openKillSheet()"><div class="action-card-icon"><i class="fa-solid fa-skull-crossbones" style="color:var(--red)"></i></div><div class="action-card-label">Kill Task</div><div class="action-card-sub">End a running app</div></div>' +
+              '</div>' +
+              '<div id="pc-session-area"></div>' +
+              '<div style="height:16px"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-startsession" onclick="closeSheet(\'sheet-startsession\')"></div>' +
+      '<div class="sheet" id="sheet-startsession">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title">Start Session</div>' +
+        '<div class="sheet-sub">Choose duration or enter amount</div>' +
+        '<div class="chip-row">' +
+          '<div class="chip" onclick="startSession(30)"><i class="fa-regular fa-clock"></i> 30m</div>' +
+          '<div class="chip" onclick="startSession(60)"><i class="fa-regular fa-clock"></i> 1h</div>' +
+          '<div class="chip" onclick="startSession(90)"><i class="fa-regular fa-clock"></i> 1.5h</div>' +
+          '<div class="chip" onclick="startSession(120)"><i class="fa-regular fa-clock"></i> 2h</div>' +
+          '<div class="chip" onclick="startSession(180)"><i class="fa-regular fa-clock"></i> 3h</div>' +
+        '</div>' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 8px">Or Pay by Amount</div>' +
+        '<div class="input-row" style="margin-bottom:16px">' +
+          '<input type="text" id="session-amount" placeholder="Amount ($)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
+          '<input type="text" id="session-mins" placeholder="Minutes" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')">' +
+          '<button class="btn btn-primary" onclick="startSessionByAmount()">Start</button>' +
+        '</div>' +
+        '<button onclick="startStopwatch()" style="width:100%;padding:13px;border-radius:var(--r2);background:var(--amber-bg);border:1px solid var(--amber-bd);color:var(--amber);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px"><i class="fa-solid fa-stopwatch"></i> Free Timer (Count Up)</button>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-addtime" onclick="closeSheet(\'sheet-addtime\')"></div>' +
+      '<div class="sheet" id="sheet-addtime">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title">Add Time</div>' +
+        '<div class="sheet-sub">Extend by duration or amount</div>' +
+        '<div class="chip-row">' +
+          '<div class="chip green" onclick="addTime(30)"><i class="fa-solid fa-circle-plus"></i> 30m</div>' +
+          '<div class="chip green" onclick="addTime(60)"><i class="fa-solid fa-circle-plus"></i> 1h</div>' +
+          '<div class="chip green" onclick="addTime(90)"><i class="fa-solid fa-circle-plus"></i> 1.5h</div>' +
+          '<div class="chip green" onclick="addTime(120)"><i class="fa-solid fa-circle-plus"></i> 2h</div>' +
+          '<div class="chip green" onclick="addTime(180)"><i class="fa-solid fa-circle-plus"></i> 3h</div>' +
+        '</div>' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 8px">Add Time</div>' +
+        '<div class="input-row" style="margin-bottom:20px">' +
+          '<input type="text" id="add-amount" placeholder="Amount ($)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
+          '<input type="text" id="add-mins" placeholder="Minutes" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')">' +
+          '<button class="btn btn-primary" onclick="addTimeByAmount()">Add</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-removetime" onclick="closeSheet(\'sheet-removetime\')"></div>' +
+      '<div class="sheet" id="sheet-removetime">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title" style="color:var(--red)">Remove Time</div>' +
+        '<div class="sheet-sub">Reduce remaining session time</div>' +
+        '<div class="chip-row">' +
+          '<div class="chip red" onclick="removeTime(15)"><i class="fa-solid fa-circle-minus"></i> 15m</div>' +
+          '<div class="chip red" onclick="removeTime(30)"><i class="fa-solid fa-circle-minus"></i> 30m</div>' +
+          '<div class="chip red" onclick="removeTime(60)"><i class="fa-solid fa-circle-minus"></i> 1h</div>' +
+          '<div class="chip red" onclick="removeTime(120)"><i class="fa-solid fa-circle-minus"></i> 2h</div>' +
+        '</div>' +
+        '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 8px">Remove Time</div>' +
+        '<div class="input-row" style="margin-bottom:20px">' +
+          '<input type="text" id="rem-mins" placeholder="Minutes to remove" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')">' +
+          '<button class="btn btn-danger" onclick="removeTime(parseInt(this.previousElementSibling.value) || 0)">Remove</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-apps" onclick="closeSheet(\'sheet-apps\')"></div>' +
+      '<div class="sheet" id="sheet-apps">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title-row">' +
+          '<div class="sheet-title">Launch App</div>' +
+          '<button class="btn btn-ghost btn-sm" onclick="openApps()" style="padding:6px 12px;font-size:10px"><i class="fa-solid fa-rotate"></i> Refresh</button>' +
+        '</div>' +
+        '<div class="sheet-sub" id="apps-pc-name"></div>' +
+        '<div id="apps-list"><div style="text-align:center;padding:28px"><span class="spin"></span></div></div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-killtasks" onclick="closeSheet(\'sheet-killtasks\')"></div>' +
+      '<div class="sheet" id="sheet-killtasks">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title-row">' +
+          '<div class="sheet-title">Kill Task</div>' +
+          '<button class="btn btn-danger btn-sm" onclick="confirmKillAll()" style="padding:6px 12px;font-size:10px"><i class="fa-solid fa-skull"></i> Kill All</button>' +
+        '</div>' +
+        '<div class="sheet-sub" id="killtasks-pc-name"></div>' +
+        '<div id="killtasks-list"><div style="text-align:center;padding:28px"><span class="spin"></span></div></div>' +
+      '</div>';
+    updateOnlinePill();
+    renderPCActions();
+    renderSidebarGroupsPC();
+    connectSocket(window.currentGroupId, COMMON.token, { onStatus: handleStatusUpdatePC, onSession: handleSessionUpdatePC, onHistory: handleHistoryUpdatePC });
+    window._timerInterval = setInterval(updateTimer, 1000);
+  }
+
+  function renderSidebarGroupsPC() {
+    const el = document.getElementById('sidebar-groups');
+    if (!el) return;
+    try {
+      const groups = JSON.parse(sessionStorage.getItem('gz_groups') || '[]');
+      if (!groups.length) { el.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-p">No groups</div></div>'; return; }
+      el.innerHTML = groups.map(g =>
+        '<div class="group-item" onclick="switchGroup(\'' + g.id + '\')">' +
+        '<div class="group-item-left">' +
+        '<div class="group-item-icon"><i class="fa-solid fa-network-wired"></i></div>' +
+        '<div><div class="group-item-name">' + escapeHtml(g.name) + '</div></div>' +
+        '</div></div>'
+      ).join('');
+    } catch {}
+  }
+
+  function handleStatusUpdatePC(data) {
+    if (data.pc_id === window.currentPcId) {
+      window.pc.is_online = data.is_online ? 1 : 0;
+      updateOnlinePill();
+    }
+  }
+
+  function handleSessionUpdatePC(data) {
+    if (data.pc_id !== window.currentPcId) return;
+    if ('session_end' in data) window.pc.session_end = data.session_end;
+    if ('stopwatch_start' in data) window.pc.stopwatch_start = data.stopwatch_start;
+    if ('payment_status' in data) window.pc.payment_status = data.payment_status;
+    renderPCActions();
+    updateOnlinePill();
+  }
+
+  function handleHistoryUpdatePC(data) {
+    if (data.pc_id === window.currentPcId) {
+      lhSet(data.pc_id, data.history || []);
+      renderPCActions();
+    }
+  }
+
+  function renderPCsListSettings() {
+    const el = document.getElementById('sidebar-groups');
+    if (!el) return;
+    try {
+      const groups = JSON.parse(sessionStorage.getItem('gz_groups') || '[]');
+      if (!groups.length) { el.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-p">No groups</div></div>'; return; }
+      el.innerHTML = groups.map(g =>
+        '<div class="group-item" onclick="switchGroup(\'' + g.id + '\')" style="' + (g.id === window.currentGroupId ? 'background:var(--s2)' : '') + '">' +
+        '<div class="group-item-left">' +
+        '<div class="group-item-icon"><i class="fa-solid fa-network-wired"></i></div>' +
+        '<div><div class="group-item-name">' + escapeHtml(g.name) + '</div></div>' +
+        '</div></div>'
+      ).join('');
+    } catch {}
+  }
+
+  window.handleSaveGroupRate = function() {
+    const rate = parseFloat(document.getElementById('group-rate-input').value);
+    if (!rate || rate < 0) { toast('Enter valid rate', 'err'); return; }
+    saveGroupRate(window.currentGroupId, rate);
+    toast('Rate saved', 'ok');
+  };
+
+  async function loadAdmins() {
+    try {
+      const admins = await api('GET', '/groups/' + window.currentGroupId + '/admins');
+      document.getElementById('admins-list').innerHTML = admins.length
+        ? admins.map(a => '<div class="admin-row"><div class="admin-av">' + escapeHtml(a.username[0].toUpperCase()) + '</div><div class="admin-name">' + escapeHtml(a.username) + '</div><button class="remove-btn" onclick="removeAdmin(\'' + a.id + '\',\'' + escapeHtml(a.username) + '\')">Remove</button></div>').join('')
+        : '<div style="color:var(--t2);padding:8px 0;font-size:12px">No additional admins</div>';
+    } catch {}
+  }
+
+  window.removeAdmin = function(id, username) {
+    showModal('Remove Admin?', 'Remove ' + escapeHtml(username) + ' as admin?', 'remove-admin');
+    document.getElementById('modal-confirm-btn').textContent = 'Remove';
+    window._modalState = { type: 'remove-admin', adminId: id, adminName: username };
+  };
+
+  window.addAdmin = async function() {
+    const username = document.getElementById('addadmin-user').value.trim();
+    if (!username) { toast('Enter a username', 'err'); return; }
+    document.getElementById('addadmin-btn-text').innerHTML = '<span class="spin"></span>';
+    try {
+      await api('POST', '/groups/' + window.currentGroupId + '/admins', { username });
+      closeSheet('sheet-addadmin');
+      document.getElementById('addadmin-user').value = '';
+      toast(username + ' added', 'ok');
+      loadAdmins();
+    } catch (e) { toast(e.message, 'err'); }
+    finally { document.getElementById('addadmin-btn-text').textContent = 'Add Admin'; }
+  };
+
+  function renderDeletePCList() {
+    const pcs = window.pcs || [];
+    if (!pcs.length) return '<div style="color:var(--t2);padding:8px 0;font-size:12px">No PCs in this group</div>';
+    return pcs.map(pc => '<div class="pc-del-row"><div class="pc-del-name"><i class="fa-solid fa-computer" style="color:var(--t3)"></i>' + escapeHtml(pc.name) + '</div><button class="pc-del-btn" onclick="promptDeletePC(\'' + pc.id + '\',\'' + escapeHtml(pc.name) + '\')">Delete</button></div>').join('');
+  }
+
+  function renderReorderPCList() {
+    const pcs = window.pcs || [];
+    if (!pcs.length) return '<div style="color:var(--t2);padding:8px 0;font-size:12px">No PCs in this group</div>';
+    return pcs.map((pc, idx) => '<div class="pc-del-row"><div class="pc-del-name"><i class="fa-solid fa-computer" style="color:var(--t3)"></i>' + escapeHtml(pc.name) + '</div><div class="reorder-btns"><button class="reorder-btn" onclick="reorderPC(\'' + pc.id + '\',-1)"' + (idx === 0 ? ' disabled' : '') + ' title="Move up"><i class="fa-solid fa-chevron-up"></i></button><button class="reorder-btn" onclick="reorderPC(\'' + pc.id + '\',1)"' + (idx === pcs.length - 1 ? ' disabled' : '') + ' title="Move down"><i class="fa-solid fa-chevron-down"></i></button></div></div>').join('');
+  }
+
+  window.reorderPC = async function(pcId, direction) {
+    const idx = window.pcs.findIndex(p => p.id === pcId);
+    const newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= window.pcs.length) return;
+    [window.pcs[idx], window.pcs[newIdx]] = [window.pcs[newIdx], window.pcs[idx]];
+    const order = window.pcs.map((pc, i) => ({ pc_id: pc.id, order: i }));
+    document.getElementById('reorder-pc-list').innerHTML = renderReorderPCList();
+    try { await api('POST', '/groups/' + window.currentGroupId + '/pcs/reorder', { order }); }
+    catch { toast('Reorder failed', 'err'); }
+  };
+
+  window.promptDeletePC = function(pcId, name) {
+    showModal('Delete PC?', 'Delete "' + name + '"\nThis cannot be undone.', 'delete');
+    document.getElementById('modal-confirm-btn').textContent = 'Delete';
+    window._modalState = { type: 'delete', target: { type: 'pc', id: pcId, name } };
+  };
+
+  window.confirmDeleteGroup = function() {
+    showModal('Delete Group?', 'Delete "' + window.currentGroupName + '"\nAll PCs in this group will be removed.', 'delete');
+    document.getElementById('modal-confirm-btn').textContent = 'Delete';
+    window._modalState = { type: 'delete', target: { type: 'group', id: window.currentGroupId, name: window.currentGroupName } };
+  };
+
+  function renderSettings() {
+    const group = JSON.parse(sessionStorage.getItem('gz_activeGroup') || 'null');
+    if (!group) { navigateTo('groups'); return; }
+    window.currentGroupId = group.id;
+    window.currentGroupName = group.name;
+    document.getElementById('app').innerHTML = 
+      '<div id="app" class="app-layout">' +
+        '<div class="sidebar-col">' +
+          '<div class="sidebar-header">' +
+            '<div class="sidebar-brand"><div class="sidebar-brand-icon"><i class="fa-solid fa-gamepad"></i></div>GameZone</div>' +
+            '<div class="sidebar-actions"><button class="icon-btn" onclick="doLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button></div>' +
+          '</div>' +
+          '<div class="topbar"><div class="topbar-title">Groups</div><button class="icon-btn" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i></button></div>' +
+          '<div class="scroll-area"><div class="screen-pad" id="sidebar-groups"></div></div>' +
+        '</div>' +
+        '<div class="main-col">' +
+          '<div class="topbar">' +
+            '<button class="back-btn" onclick="navigateTo(\'dashboard\')"><i class="fa-solid fa-chevron-left"></i></button>' +
+            '<div class="topbar-title">Settings</div>' +
+            '<div style="width:34px"></div>' +
+          '</div>' +
+          '<div class="main-content scroll-area">' +
+            '<div class="scroll-inner">' +
+              '<div class="screen-pad">' +
+                '<div class="settings-card">' +
+                  '<div class="settings-row"><div><div class="settings-key">Group Name</div><div id="s-name" class="settings-val">' + escapeHtml(group.name) + '</div></div>' +
+                  '<div class="settings-row"><div style="width:100%"><div class="settings-key">Group ID</div><div id="s-id" class="mono-block">' + escapeHtml(group.id) + '</div><div style="font-size:10px;color:var(--t3);margin-top:5px">Copy into each PC\'s config.json</div></div>' +
+                  '<div class="settings-row">' +
+                    '<div><div class="settings-key">Hourly Rate ($)</div><div class="settings-val">Price per hour for all PCs in this group</div></div>' +
+                    '<div style="display:flex;align-items:center;gap:8px">' +
+                      '<input type="text" id="group-rate-input" placeholder="5.00" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')" style="width:80px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none">' +
+                      '<button class="btn btn-primary btn-sm" onclick="handleSaveGroupRate()" style="padding:8px 14px;font-size:11px">Save</button>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:12px">Administrators</div>' +
+                '<div id="admins-list"></div>' +
+                '<button class="btn btn-ghost" style="margin-top:12px" onclick="openSheet(\'sheet-addadmin\')"><i class="fa-solid fa-user-plus"></i> Add Admin</button>' +
+                '<div style="height:20px"></div>' +
+                '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:12px">Danger Zone</div>' +
+                '<div style="display:flex;flex-direction:column;gap:10px">' +
+                  '<button class="btn btn-ghost" onclick="openSheet(\'sheet-reorderpc\')"><i class="fa-solid fa-arrows-up-down"></i> Reorder PCs</button>' +
+                  '<button class="btn btn-ghost" onclick="openSheet(\'sheet-deletepc\')"><i class="fa-solid fa-trash"></i> Delete a PC</button>' +
+                  '<button class="btn btn-danger btn-full" onclick="confirmDeleteGroup()"><i class="fa-solid fa-trash-can"></i> Delete Group</button>' +
+                  '<button class="btn btn-danger btn-full" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>' +
+                '</div>' +
+                '<div style="height:24px"></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-addadmin" onclick="closeSheet(\'sheet-addadmin\')"></div>' +
+      '<div class="sheet" id="sheet-addadmin">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title">Add Admin</div>' +
+        '<div class="sheet-sub">Grant access to another user</div>' +
+        '<div class="field"><label class="field-label">Username</label><input class="field-input" type="text" id="addadmin-user" placeholder="Username" autocapitalize="none"></div>' +
+        '<div class="sheet-btns">' +
+          '<button class="btn btn-ghost" onclick="closeSheet(\'sheet-addadmin\')">Cancel</button>' +
+          '<button class="btn btn-primary" onclick="addAdmin()"><span id="addadmin-btn-text">Add Admin</span></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-reorderpc" onclick="closeSheet(\'sheet-reorderpc\')"></div>' +
+      '<div class="sheet" id="sheet-reorderpc">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title">Reorder PCs</div>' +
+        '<div class="sheet-sub">Use arrows to change display order</div>' +
+        '<div id="reorder-pc-list"></div>' +
+      '</div>' +
+      '<div class="sheet-bg" id="bg-deletepc" onclick="closeSheet(\'sheet-deletepc\')"></div>' +
+      '<div class="sheet" id="sheet-deletepc">' +
+        '<div class="sheet-handle"></div>' +
+        '<div class="sheet-title">Delete PC</div>' +
+        '<div class="sheet-sub">Select a PC to remove permanently</div>' +
+        '<div id="delete-pc-list"></div>' +
+      '</div>';
+    document.getElementById('group-rate-input').value = getGroupRate(window.currentGroupId).toFixed(2);
+    loadSettingsPCs();
+    loadAdmins();
+    renderPCsListSettings();
+  }
+
+  async function loadSettingsPCs() {
+    try {
+      window.pcs = await api('GET', '/groups/' + window.currentGroupId + '/pcs');
+      document.getElementById('delete-pc-list').innerHTML = renderDeletePCList();
+      document.getElementById('reorder-pc-list').innerHTML = renderReorderPCList();
+    } catch { toast('Failed to load PCs', 'err'); }
+  }
+
+  window.addEventListener('hashchange', render);
+  window.addEventListener('load', () => {
+    if (!COMMON.token || !COMMON.user || !COMMON.serverUrl) {
+      window.location.hash = '#/login';
+    }
+    render();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    if (window._timerInterval) clearInterval(window._timerInterval);
+    disconnectSocket();
+  });
+})();
+</script>
+</body>
+</html>
