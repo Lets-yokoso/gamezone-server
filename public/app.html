@@ -1262,9 +1262,9 @@
             '<div class="scroll-inner">' +
               '<div class="screen-pad">' +
                 '<div class="settings-card" style="padding:16px;display:block">' +
-                  '<div class="settings-row" style="padding:0;display:block"><div><div class="settings-key">Group Name</div><div id="s-name" class="settings-val">' + escapeHtml(group.name) + '</div></div>' +
-                  '<div class="settings-row" style="padding:0;display:block"><div style="width:100%"><div class="settings-key">Group ID</div><div id="s-id" class="mono-block">' + escapeHtml(group.id) + '</div><div style="font-size:10px;color:var(--t3);margin-top:5px">Copy into each PC\'s config.json</div></div>' +
-                  '<div class="settings-row" style="padding:0;display:block">' +
+                  '<div class="settings-row" style="padding:15px 0;display:block"><div><div class="settings-key">Group Name</div><div id="s-name" class="settings-val">' + escapeHtml(group.name) + '</div></div>' +
+                  '<div class="settings-row" style="padding:15px 0;display:block"><div style="width:100%"><div class="settings-key">Group ID</div><div id="s-id" class="mono-block">' + escapeHtml(group.id) + '</div><div style="font-size:10px;color:var(--t3);margin-top:5px">Copy into each PC\'s config.json</div></div>' +
+                  '<div class="settings-row" style="padding:15px 0;display:block">' +
                     '<div><div class="settings-key">Hourly Rate ($)</div><div class="settings-val">Price per hour for all PCs in this group</div></div>' +
                     '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
                       '<input type="text" id="group-rate-input" placeholder="5.00" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')" style="width:80px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none">' +
@@ -1278,13 +1278,13 @@
                 '<div style="height:20px"></div>' +
                 '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:12px">Preferences</div>' +
                 '<div class="settings-card" style="padding:16px;display:block;margin-bottom:20px">' +
-                  '<div class="settings-row" style="padding:0;display:block;cursor:pointer" onclick="togglePref(\'hideAddGroup\')">' +
+                  '<div class="settings-row" style="padding:15px 0;display:block;cursor:pointer" onclick="togglePref(\'hideAddGroup\')">' +
                     '<div><div class="settings-key">Hide "New Group" Button</div><div class="settings-val">Remove the button once groups are set up</div></div>' +
                     '<div id="pref-hideAddGroup" style="width:36px;height:20px;border-radius:10px;background:var(--s4);position:relative;transition:background .2s;flex-shrink:0;margin-top:2px">' +
                       '<div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:transform .2s"></div>' +
                     '</div>' +
                   '</div>' +
-                  '<div class="settings-row" style="padding:0;display:block;cursor:pointer" onclick="togglePref(\'hideAddPC\')">' +
+                  '<div class="settings-row" style="padding:15px 0;display:block;cursor:pointer" onclick="togglePref(\'hideAddPC\')">' +
                     '<div><div class="settings-key">Hide "Add PC" Button</div><div class="settings-val">Remove the button once PCs are configured</div></div>' +
                     '<div id="pref-hideAddPC" style="width:36px;height:20px;border-radius:10px;background:var(--s4);position:relative;transition:background .2s;flex-shrink:0;margin-top:2px">' +
                       '<div style="width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:transform .2s"></div>' +
