@@ -167,9 +167,9 @@ async function executeAction() {
         else window.location.hash = '#/groups';
       }
     } else if (state.type === 'end-session') {
-      if (typeof confirmEndSessionAction === 'function') confirmEndSessionAction();
+      if (typeof PcControl !== 'undefined' && PcControl.endSession) PcControl.endSession();
     } else if (state.type === 'kill-all') {
-      if (typeof killAllProcesses === 'function') killAllProcesses();
+      if (typeof PcControl !== 'undefined' && PcControl.killAllProcesses) PcControl.killAllProcesses();
     } else if (state.type === 'logout') {
       localStorage.clear();
       if (typeof navigateTo === 'function') navigateTo('login');
@@ -253,11 +253,17 @@ function lhAdd(pcId, entry, socket, groupId) {
 function doLogout(silent = false) {
   localStorage.clear();
   if (silent) {
-    window.location.hash = '#/login';
+    window.location.href = '/';
   } else {
     window._modalState = { type: 'logout' };
     showModal('Logout?', 'Are you sure you want to logout?', 'logout');
   }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 async function checkExpiryWarning() {

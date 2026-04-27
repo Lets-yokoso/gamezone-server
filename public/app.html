@@ -29,6 +29,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/common.js"></script>
 <script src="/js/socket.js"></script>
+<script src="/components/index.js"></script>
 <script>
 (function() {
   let currentView = null;
@@ -87,32 +88,36 @@
         COMMON.user = user;
       }
     }
-    const hash = window.location.hash.slice(1) || '/login';
-    if (!COMMON.token && hash !== '/login') {
-      window.location.hash = '#/login';
+    const path = window.location.pathname;
+    const view = path === '/' || path === '/app' ? 'login' : path.replace(/^\/app\/?/, '').replace(/^\//, '') || 'login';
+    if (!COMMON.token && view !== 'login') {
+      window.location.href = '/app/login';
       return;
     }
-    if (COMMON.token && hash === '/login') {
-      window.location.hash = '#/groups';
+    if (COMMON.token && view === 'login') {
+      window.location.href = '/app/groups';
       return;
     }
-    const view = hash.replace(/^\//, '');
     if (currentView === view) return;
     currentView = view;
     document.getElementById('app').innerHTML = '';
     switch(view) {
       case 'login': renderLogin(); break;
-      case 'groups': renderGroups(); break;
-      case 'dashboard': renderDashboard(); break;
-      case 'pc-control': renderPCControl(); break;
+      case 'groups': if (window.Groups) window.Groups.init(); else renderGroups(); break;
+      case 'dashboard': if (window.Dashboard) window.Dashboard.start(); else renderDashboard(); break;
+      case 'pc-control': if (window.PcControl) window.PcControl.start(); else renderPCControl(); break;
       case 'settings': window.location.href = '/settings'; break;
       default: renderLogin();
     }
   }
 
   window.navigateTo = function(view) {
-    window.location.hash = '#/' + view;
+    const path = view === 'login' ? '/app/login' : '/app/' + view.replace(/^\//, '');
+    history.pushState({}, '', path);
+    render();
   };
+
+  window.addEventListener('popstate', render);
 
   function escapeHtml(str) {
     const div = document.createElement('div');
@@ -1344,10 +1349,9 @@
     } catch { toast('Failed to load PCs', 'err'); }
   }
 
-  window.addEventListener('hashchange', render);
   window.addEventListener('load', async () => {
     if (!COMMON.token || !COMMON.user || !COMMON.serverUrl) {
-      window.location.hash = '#/login';
+      window.location.href = '/app/login';
       return;
     }
     const data = await fetchMe();
@@ -1357,6 +1361,7 @@
     }
     startStatusPolling();
     render();
+    Components.prefetch();
   });
 
   window.addEventListener('beforeunload', () => {
