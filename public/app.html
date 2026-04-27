@@ -33,6 +33,8 @@
 (function() {
   let currentView = null;
   let socket = null;
+  let _statusInterval = null;
+  let _lastKnownStatus = null;
   window.pcs = [];
   window.groups = [];
   window.currentGroupId = null;
@@ -44,7 +46,47 @@
   window._procs = [];
   window._timerInterval = null;
 
-  function render() {
+  async function fetchMe() {
+    try {
+      const res = await fetch(COMMON.serverUrl + '/api/me', {
+        headers: { Authorization: 'Bearer ' + COMMON.token }
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }
+
+  async function startStatusPolling() {
+    if (_statusInterval) clearInterval(_statusInterval);
+    _statusInterval = setInterval(async () => {
+      const data = await fetchMe();
+      if (!data) return;
+      const newStatus = data.status;
+      if (_lastKnownStatus && newStatus !== _lastKnownStatus) {
+        window.location.href = '/';
+        return;
+      }
+      _lastKnownStatus = newStatus;
+      const user = COMMON.user;
+      if (user) {
+        user.status = newStatus;
+        user.expiry_date = data.expiry_date;
+        COMMON.user = user;
+      }
+    }, 30000);
+  }
+
+  async function render() {
+    const data = await fetchMe();
+    if (data) {
+      _lastKnownStatus = data.status;
+      const user = COMMON.user;
+      if (user) {
+        user.status = data.status;
+        user.expiry_date = data.expiry_date;
+        COMMON.user = user;
+      }
+    }
     const hash = window.location.hash.slice(1) || '/login';
     if (!COMMON.token && hash !== '/login') {
       window.location.hash = '#/login';
@@ -320,14 +362,14 @@
   };
 
   async function loadGroups() {
+    let status = 'active';
     try {
-      const me = await api('GET', '/me');
-      if (COMMON.user) {
-        COMMON.user.status = me.status;
-        COMMON.user.expiry_date = me.expiry_date;
+      const me = await fetchMe();
+      if (me) {
+        status = me.status || 'active';
+        COMMON.user = { ...COMMON.user, status: me.status, expiry_date: me.expiry_date };
       }
     } catch {}
-    const status = COMMON.user?.status || 'active';
     if (status !== 'active') { renderGroupsList(); checkExpiryWarning(); return; }
     try {
       window.groups = await api('GET', '/groups');
@@ -1287,10 +1329,17 @@
   }
 
   window.addEventListener('hashchange', render);
-  window.addEventListener('load', () => {
+  window.addEventListener('load', async () => {
     if (!COMMON.token || !COMMON.user || !COMMON.serverUrl) {
       window.location.hash = '#/login';
+      return;
     }
+    const data = await fetchMe();
+    if (data) {
+      _lastKnownStatus = data.status;
+      COMMON.user = { ...COMMON.user, status: data.status, expiry_date: data.expiry_date };
+    }
+    startStatusPolling();
     render();
   });
 
