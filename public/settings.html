@@ -22,7 +22,7 @@
   </div>
   <div class="main-col">
     <div class="topbar">
-      <button class="back-btn" onclick="window.location.href='/dashboard'"><i class="fa-solid fa-chevron-left"></i></button>
+      <button class="back-btn" onclick="window.location.href='/app/dashboard'"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="topbar-title">Settings</div>
       <div style="width:34px"></div>
     </div>
@@ -126,7 +126,7 @@ window.pcs = [];
 window.addEventListener('load', () => {
   if (!requireAuth()) return;
   const group = JSON.parse(sessionStorage.getItem('gz_activeGroup') || 'null');
-  if (!group) { window.location.href = '/groups'; return; }
+  if (!group) { window.location.href = '/app/groups'; return; }
   window.currentGroupId = group.id;
   window.currentGroupName = group.name;
   document.getElementById('s-name').textContent = group.name;
@@ -166,9 +166,9 @@ function switchGroup(id) {
     const group = groups.find(g => g.id === id);
     if (group) {
       sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
-      window.location.href = '/dashboard';
+      window.location.href = '/app/dashboard';
     }
-  }).catch(() => { window.location.href = '/groups'; });
+  }).catch(() => { window.location.href = '/app/groups'; });
 }
 
 function loadGroupRate() {
