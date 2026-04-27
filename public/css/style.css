@@ -186,7 +186,7 @@ select.field-input{cursor:pointer;background:var(--bg)}
   .main-content{flex:1;overflow-y:auto}
   .main-content .scroll-inner{max-width:860px;margin:0 auto}
   .sidebar-col .topbar{display:none}
-.pc-grid{display:grid;grid-template-columns:repeat(2, 1fr);gap:14px;padding:0 32px 32px}
+  .pc-grid{display:grid;grid-template-columns:repeat(2, 1fr);gap:14px;padding:0 32px 32px}
   .action-grid{padding:0 32px}
   .stats-row{padding:24px 32px 20px}
   .topbar{padding:0 32px}
@@ -196,7 +196,6 @@ select.field-input{cursor:pointer;background:var(--bg)}
   .desktop-only{display:flex!important}
 }
 
-/* Mobile: hide sidebar everywhere except groups page, fix scroll, FAB at bottom */
 @media(max-width:1023px){
   html,body{overflow:auto!important;height:auto!important}
   .sidebar-col{display:none!important}

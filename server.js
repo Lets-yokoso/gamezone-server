@@ -69,10 +69,6 @@ app.use('/api', globalLimiter);
 
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/app', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'app.html')));
-app.get('/app.html', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'app.html')));
-app.get('/groups', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'groups.html')));
-app.get('/dashboard', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
-app.get('/pc-control', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'pc-control.html')));
 app.get('/settings', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'settings.html')));
 
 // Admin portal fallback

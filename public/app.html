@@ -105,7 +105,7 @@
       case 'groups': renderGroups(); break;
       case 'dashboard': renderDashboard(); break;
       case 'pc-control': renderPCControl(); break;
-      case 'settings': renderSettings(); break;
+      case 'settings': window.location.href = '/settings'; break;
       default: renderLogin();
     }
   }
