@@ -172,12 +172,20 @@ function loadFlushTime() {
     api('GET', '/groups/' + window.currentGroupId + '/flush-time').then(res => {
       const flushTime = res.flush_time || '03:30';
       const localTime = convertToLocalTime(flushTime);
+      const serverTimeFormatted = formatTimeWithAmPm(flushTime);
       const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      document.getElementById('flush-warning').innerHTML = 'PC usage history is cleared daily at <strong>' + flushTime + '</strong> (Singapore)<br>Your local time: <strong>' + localTime + '</strong> (' + userTz + ')<br>Download history before this time to keep records.';
+      document.getElementById('flush-warning').innerHTML = 'PC usage history is cleared daily at <strong>' + serverTimeFormatted + '</strong> (Singapore)<br>Your local time: <strong>' + localTime + '</strong> (' + userTz + ')<br>Download history before this time to keep records.';
     }).catch(() => {
-      document.getElementById('flush-warning').innerHTML = 'PC usage history is cleared daily at <strong>03:30</strong> (Singapore).<br>Download history before this time to keep records.';
+      document.getElementById('flush-warning').innerHTML = 'PC usage history is cleared daily at <strong>03:30 AM</strong> (Singapore).<br>Download history before this time to keep records.';
     });
   } catch(e) {}
+}
+
+function formatTimeWithAmPm(timeStr) {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const amPm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours === 0 ? 12 : (hours > 12 ? hours - 12 : hours);
+  return `${displayHours}:${String(minutes).padStart(2, '0')} ${amPm}`;
 }
 
 function convertToLocalTime(singaporeTime) {
