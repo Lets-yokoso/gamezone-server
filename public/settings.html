@@ -196,9 +196,9 @@ function switchGroup(id) {
 
 async function loadGroupRate() {
   try {
-    const group = await api('GET', '/groups/' + window.currentGroupId);
+    const group = await api('GET', '/groups/' + window.currentGroupId + '/rate');
     const rate = group?.hourly_rate || getGroupRate(window.currentGroupId);
-    document.getElementById('group-rate-input').value = rate.toFixed(2);
+    document.getElementById('group-rate-input').value = parseFloat(rate).toFixed(2);
     sessionStorage.setItem('gz_hourly_rate_' + window.currentGroupId, rate.toString());
   } catch(e) {
     const rate = getGroupRate(window.currentGroupId);

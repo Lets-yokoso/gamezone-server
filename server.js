@@ -116,7 +116,28 @@ app.use((err, req, res, _next) => {
 
 setupSocketHandlers(io);
 
-// ── Start Server ───────────────────────────────────────────────────────────────
+// In-memory rate cache for instant reads (no DB queries after load)
+global._rateCache = {};
+
+const loadRateCache = async () => {
+  const groups = await db.all('groups');
+  for (const group of groups) {
+    if (group.hourly_rate) {
+      global._rateCache[group.id] = group.hourly_rate;
+    }
+  }
+  console.log(`[+] Loaded ${Object.keys(global._rateCache).length} group rates into cache`);
+};
+
+const getCachedRate = (groupId) => {
+  return global._rateCache[groupId] || 5;
+};
+
+const setCachedRate = (groupId, rate) => {
+  global._rateCache[groupId] = rate;
+};
+
+// ── Start Server ─────────────────────────────────────────────────────────────────
 
 db._ready.then(async () => {
   const existingGroups = await db.filter('groups', g => !g.hourly_rate);
@@ -126,6 +147,9 @@ db._ready.then(async () => {
   if (existingGroups.length > 0) {
     console.log(`Migrated ${existingGroups.length} groups with default hourly rate`);
   }
+  await loadRateCache();
+  global.getCachedRate = getCachedRate;
+  global.setCachedRate = setCachedRate;
   server.listen(PORT, () => {
     console.log(`\nGameZone Server running on port ${PORT}`);
     console.log(`   Mode: ${process.env.MONGODB_URI ? 'MongoDB (cloud)' : 'Local JSON file'}`);

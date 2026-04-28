@@ -66,8 +66,13 @@
         const isEnded = entry.status === 'ended';
         let valStr, label, icon;
         if (isSession) {
-          if (isFree) { icon = '⏱'; label = isEnded ? 'Free Session (ended)' : 'Free Session'; valStr = isEnded && entry.mins ? entry.mins + 'm' : 'FREE'; }
-          else { icon = '⏰'; label = isEnded ? 'Session (ended)' : 'Session'; valStr = (entry.mins || 0) + 'm'; }
+          if (isFree) { 
+            icon = '⏱'; 
+            label = isEnded ? 'Free Session' : 'Free Session'; 
+            const mins = entry.mins;
+            valStr = (isEnded && mins !== undefined && mins !== null) ? mins + 'm' : (isEnded ? '0m' : 'FREE'); 
+          }
+          else { icon = '⏰'; label = isEnded ? 'Session' : 'Session'; valStr = (entry.mins || 0) + 'm'; }
         } else {
           const isAdd = entry.type === 'add';
           icon = isAdd ? '+' : '-';

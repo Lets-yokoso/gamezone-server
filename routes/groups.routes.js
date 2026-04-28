@@ -120,7 +120,22 @@ router.put('/:groupId/rate', [
     const { hourly_rate } = req.body;
     if (!await canManageGroup(req.user.id, groupId)) return res.status(403).json({ error: 'Forbidden' });
     await db.update('groups', g => g.id === groupId, { hourly_rate });
+    if (global.setCachedRate) {
+      global.setCachedRate(groupId, hourly_rate);
+    }
     res.json({ success: true, hourly_rate });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Fast endpoint using in-memory cache (no DB query)
+router.get('/:groupId/rate', [
+  param('groupId').isUUID().withMessage('Invalid group ID'),
+], validate, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    if (!await canManageGroup(req.user.id, groupId)) return res.status(403).json({ error: 'Forbidden' });
+    const rate = global.getCachedRate ? global.getCachedRate(groupId) : 5;
+    res.json({ hourly_rate: rate });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
