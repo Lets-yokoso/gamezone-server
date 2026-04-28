@@ -365,7 +365,7 @@
     if (_socket) { _socket.disconnect(); _socket = null; }
   };
 
-  PcControl.start = function() {
+  PcControl.start = async function() {
     const pc = JSON.parse(sessionStorage.getItem('gz_activePc') || 'null');
     const groupId = sessionStorage.getItem('gz_activeGroupId');
     if (!pc || !groupId) { navigateTo('dashboard'); return; }
@@ -373,14 +373,16 @@
     window.currentPcName = pc.name;
     window.currentGroupId = groupId;
     window.pc = pc;
+    // Fetch rate synchronously BEFORE rendering - ensures rate is available for immediate user actions
+    try {
+      const rateRes = await api('GET', '/groups/' + groupId + '/rate');
+      const rate = rateRes?.hourly_rate || 5;
+      sessionStorage.setItem('gz_hourly_rate_' + groupId, rate.toString());
+    } catch {
+      sessionStorage.setItem('gz_hourly_rate_' + groupId, '5');
+    }
     document.getElementById('app').innerHTML = PcControl.render(pc.name);
     setTimeout(async () => {
-      // Fetch hourly rate and store in sessionStorage for calculations
-      try {
-        const rateRes = await api('GET', '/groups/' + groupId + '/rate');
-        const rate = rateRes?.hourly_rate || 5;
-        sessionStorage.setItem('gz_hourly_rate_' + groupId, rate.toString());
-      } catch {}
       try {
         const r = await api('GET', '/pcs/' + pc.id + '/history');
         _cachedHistory = r.history || [];

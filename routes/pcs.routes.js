@@ -253,8 +253,14 @@ router.post('/pcs/:pcId/session/end', [
     const activeSession = parentHistory.find(h => h.type === 'session' && h.status === 'active');
     if (activeSession) {
       const now = Math.floor(Date.now() / 1000);
-      const remainingSeconds = activeSession.mode === 'paid' && pc.session_end > now ? pc.session_end - now : 0;
-      const finalMins = activeSession.mins - Math.floor(remainingSeconds / 60);
+      let finalMins;
+      if (activeSession.mode === 'free') {
+        const childEntries = parentHistory.filter(h => h.parentId === activeSession.id);
+        finalMins = calculateParentMins(activeSession, childEntries, 0);
+      } else {
+        const remainingSeconds = pc.session_end > now ? pc.session_end - now : 0;
+        finalMins = activeSession.mins - Math.floor(remainingSeconds / 60);
+      }
       await updateHistoryEntry(pcId, activeSession.id, { mins: finalMins, status: 'ended' });
     }
     await db.update('pcs', p => p.id === pcId, { session_end: 0, stopwatch_start: 0 });
