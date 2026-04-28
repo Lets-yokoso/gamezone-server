@@ -2,7 +2,6 @@
   const PcControl = window.PcControl = {};
   let _socket = null;
   let _timerInterval = null;
-  let _historyRefreshInterval = null;
 
   function updateOnlinePill() {
     const pc = window.pc;
@@ -119,6 +118,7 @@
       window.pc.stopwatch_start = 0;
       toast('Session started', 'ok');
       PcControl.renderActions();
+      setTimeout(() => PcControl.refreshHistory(), 500);
     } catch (e) { toast(e.message, 'err'); }
   };
 
@@ -130,6 +130,7 @@
       window.pc.session_end = 0;
       toast('Free timer started', 'ok');
       PcControl.renderActions();
+      setTimeout(() => PcControl.refreshHistory(), 500);
     } catch (e) { toast(e.message, 'err'); }
   };
 
@@ -152,6 +153,7 @@
       document.getElementById('session-mins').value = '';
       toast('Session started: ' + totalMins + 'm', 'ok');
       PcControl.renderActions();
+      setTimeout(() => PcControl.refreshHistory(), 500);
     } catch (e) { toast(e.message, 'err'); }
   };
 
@@ -162,6 +164,7 @@
       if (r.stopwatch_start !== undefined) { window.pc.stopwatch_start = r.stopwatch_start; } else { window.pc.session_end = r.session_end; }
       toast('+' + mins + 'm added', 'ok');
       PcControl.renderActions();
+      setTimeout(() => PcControl.refreshHistory(), 500);
     } catch (e) { toast(e.message, 'err'); }
   };
 
@@ -185,6 +188,7 @@
     document.getElementById('add-amount').value = '';
     document.getElementById('add-mins').value = '';
     PcControl.renderActions();
+    setTimeout(() => PcControl.refreshHistory(), 500);
   };
 
   PcControl.removeTime = async function(mins) {
@@ -200,6 +204,7 @@
         toast('-' + mins + 'm removed', 'ok');
       }
       PcControl.renderActions();
+      setTimeout(() => PcControl.refreshHistory(), 500);
     } catch (e) { toast(e.message, 'err'); }
   };
 
@@ -216,6 +221,7 @@
       window.pc.stopwatch_start = 0;
       toast('Session ended', 'ok');
       PcControl.renderActions();
+      setTimeout(() => PcControl.refreshHistory(), 500);
     } catch (e) { toast(e.message, 'err'); }
   };
 
@@ -306,11 +312,16 @@
 
   function handleSessionUpdate(data) {
     if (data.pc_id !== window.currentPcId) return;
+    const wasActive = window.pc.session_end > 0 || window.pc.stopwatch_start > 0;
     if ('session_end' in data) window.pc.session_end = data.session_end;
     if ('stopwatch_start' in data) window.pc.stopwatch_start = data.stopwatch_start;
     if ('payment_status' in data) window.pc.payment_status = data.payment_status;
     PcControl.renderActions();
     updateOnlinePill();
+    const isEnded = data.session_end === 0 && data.stopwatch_start === 0;
+    if (wasActive && isEnded) {
+      setTimeout(() => PcControl.refreshHistory(), 500);
+    }
   }
 
   function handleHistoryUpdate(data) {
@@ -376,7 +387,6 @@
       PcControl.refreshHistory();
       PcControl.connectSocket();
       _timerInterval = setInterval(updateTimer, 1000);
-      _historyRefreshInterval = setInterval(() => PcControl.refreshHistory(), 30000);
     }, 0);
     return true;
   };
@@ -384,7 +394,6 @@
   PcControl.cleanup = function() {
     PcControl.disconnectSocket();
     if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
-    if (_historyRefreshInterval) { clearInterval(_historyRefreshInterval); _historyRefreshInterval = null; }
   };
 
   PcControl.render = function(pcName) {
