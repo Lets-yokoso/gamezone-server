@@ -147,13 +147,14 @@ module.exports = (io) => {
       if (!isValidUUID(group_id) || !isValidUUID(pc_id)) return;
       if (!Array.isArray(history) || history.length > 50) return;
       try {
-        await db.update('pcs', p => p.id === pc_id, { time_history: history });
+        const filtered = history.filter(h => !h.parentId);
+        await db.update('pcs', p => p.id === pc_id, { time_history: filtered });
+        io.to(`group:${group_id}`).emit('admin:history-update', {
+          group_id,
+          pc_id,
+          history: filtered
+        });
       } catch(e) {}
-      io.to(`group:${group_id}`).emit('admin:history-update', {
-        group_id,
-        pc_id,
-        history
-      });
     });
 
     socket.on('admin:request-history', async ({ group_id, pc_id }) => {
@@ -161,9 +162,8 @@ module.exports = (io) => {
       let history = [];
       try {
         const pc = await db.get('pcs', p => p.id === pc_id);
-        history = pc?.time_history || [];
+        history = (pc?.time_history || []).filter(h => !h.parentId);
       } catch(e) {}
-      history = history.filter(h => !h.parentId);
       io.to(`group:${group_id}`).emit('admin:history-update', { group_id, pc_id, history });
     });
 
