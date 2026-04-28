@@ -375,6 +375,12 @@
     window.pc = pc;
     document.getElementById('app').innerHTML = PcControl.render(pc.name);
     setTimeout(async () => {
+      // Fetch hourly rate and store in sessionStorage for calculations
+      try {
+        const rateRes = await api('GET', '/groups/' + groupId + '/rate');
+        const rate = rateRes?.hourly_rate || 5;
+        sessionStorage.setItem('gz_hourly_rate_' + groupId, rate.toString());
+      } catch {}
       try {
         const r = await api('GET', '/pcs/' + pc.id + '/history');
         _cachedHistory = r.history || [];

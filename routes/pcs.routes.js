@@ -50,7 +50,8 @@ const updateHistoryEntry = async (pcId, entryId, updates) => {
   const history = await getPcHistory(pcId);
   const idx = history.findIndex(h => h.id === entryId);
   if (idx >= 0) {
-    history[idx] = { ...history[idx], ...updates };
+    history[idx].mins = updates.mins !== undefined ? updates.mins : history[idx].mins;
+    history[idx].status = updates.status !== undefined ? updates.status : history[idx].status;
     const cutoff = Date.now() - (24 * 60 * 60 * 1000);
     const filtered = history.filter(h => h.at > cutoff);
     await setPcHistory(pcId, filtered);
