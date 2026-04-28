@@ -147,7 +147,7 @@ module.exports = (io) => {
       if (!isValidUUID(group_id) || !isValidUUID(pc_id)) return;
       if (!Array.isArray(history) || history.length > 50) return;
       try {
-        const filtered = history.filter(h => !h.parentId);
+        const filtered = history.filter(h => !h.parentId && h.parentId !== null);
         await db.update('pcs', p => p.id === pc_id, { time_history: filtered });
         io.to(`group:${group_id}`).emit('admin:history-update', {
           group_id,
@@ -162,7 +162,7 @@ module.exports = (io) => {
       let history = [];
       try {
         const pc = await db.get('pcs', p => p.id === pc_id);
-        history = (pc?.time_history || []).filter(h => !h.parentId);
+        history = (pc?.time_history || []).filter(h => h.parentId === undefined || h.parentId === null || h.parentId === '');
       } catch(e) {}
       io.to(`group:${group_id}`).emit('admin:history-update', { group_id, pc_id, history });
     });

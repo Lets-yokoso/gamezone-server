@@ -139,7 +139,7 @@ router.get('/:groupId/history/export', [
     let totalFreeMins = 0;
     for (const pc of pcs) {
       const pcHistory = pc.time_history || [];
-      const parentEntries = pcHistory.filter(h => h.type === 'session' && !h.parentId);
+      const parentEntries = pcHistory.filter(h => h.type === 'session' && (!h.parentId || h.parentId === null));
       let pcSessionMins = 0;
       let pcFreeMins = 0;
       for (const entry of parentEntries) {

@@ -470,9 +470,9 @@ router.get('/pcs/:pcId/history', [
     const pc = await db.get('pcs', p => p.id === pcId);
     if (!pc) return res.json({ history: [] });
     if (!await canManageGroup(req.user.id, pc.group_id)) return res.status(403).json({ error: 'Forbidden' });
-    const allHistory = await getPcHistory(pcId);
-    const history = allHistory.filter(h => !h.parentId);
-    res.json({ history });
+    const historyData = pc.time_history || [];
+    const filtered = historyData.filter(h => h.parentId === undefined || h.parentId === null || h.parentId === '');
+    res.json({ history: filtered });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
