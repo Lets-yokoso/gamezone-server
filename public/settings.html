@@ -199,9 +199,11 @@ async function loadGroupRate() {
     const group = await api('GET', '/groups/' + window.currentGroupId);
     const rate = group?.hourly_rate || getGroupRate(window.currentGroupId);
     document.getElementById('group-rate-input').value = rate.toFixed(2);
+    sessionStorage.setItem('gz_hourly_rate_' + window.currentGroupId, rate.toString());
   } catch(e) {
     const rate = getGroupRate(window.currentGroupId);
     document.getElementById('group-rate-input').value = rate.toFixed(2);
+    sessionStorage.setItem('gz_hourly_rate_' + window.currentGroupId, rate.toString());
   }
 }
 
@@ -210,8 +212,10 @@ async function handleSaveGroupRate() {
   if (!rate || rate < 0) { toast('Enter valid rate', 'err'); return; }
   try {
     await api('PUT', '/groups/' + window.currentGroupId + '/rate', { hourly_rate: rate });
+    sessionStorage.setItem('gz_hourly_rate_' + window.currentGroupId, rate.toString());
   } catch(e) {
     saveGroupRate(window.currentGroupId, rate);
+    sessionStorage.setItem('gz_hourly_rate_' + window.currentGroupId, rate.toString());
   }
   toast('Rate saved', 'ok');
 }

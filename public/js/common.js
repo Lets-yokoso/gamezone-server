@@ -225,6 +225,8 @@ function applyPrefs() {
 
 function getGroupRate(groupId) {
   if (!groupId) return 5;
+  const sessionRate = sessionStorage.getItem('gz_hourly_rate_' + groupId);
+  if (sessionRate) return parseFloat(sessionRate);
   try {
     const rates = JSON.parse(localStorage.getItem('gz_group_rates') || '{}');
     return rates[groupId] || 5;
