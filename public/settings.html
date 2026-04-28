@@ -63,6 +63,13 @@
               </div>
             </div>
           </div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:12px">Export Data</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn btn-ghost" onclick="exportHistory('text')"><i class="fa-solid fa-file-lines"></i> Download as Text</button>
+            <button class="btn btn-ghost" onclick="exportHistory('excel')"><i class="fa-solid fa-file-csv"></i> Download as Excel</button>
+            <button class="btn btn-ghost" onclick="exportHistory('pdf')"><i class="fa-solid fa-file-pdf"></i> Download as PDF</button>
+          </div>
+          <div style="height:16px"></div>
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:12px">Danger Zone</div>
           <div style="display:flex;flex-direction:column;gap:10px">
             <button class="btn btn-ghost" onclick="openSheet('sheet-reorderpc')"><i class="fa-solid fa-arrows-up-down"></i> Reorder PCs</button>
@@ -184,15 +191,25 @@ function switchGroup(id) {
   }).catch(() => { window.location.href = '/app/groups'; });
 }
 
-function loadGroupRate() {
-  const rate = getGroupRate(window.currentGroupId);
-  document.getElementById('group-rate-input').value = rate.toFixed(2);
+async function loadGroupRate() {
+  try {
+    const group = await api('GET', '/groups/' + window.currentGroupId);
+    const rate = group?.hourly_rate || getGroupRate(window.currentGroupId);
+    document.getElementById('group-rate-input').value = rate.toFixed(2);
+  } catch(e) {
+    const rate = getGroupRate(window.currentGroupId);
+    document.getElementById('group-rate-input').value = rate.toFixed(2);
+  }
 }
 
-function handleSaveGroupRate() {
+async function handleSaveGroupRate() {
   const rate = parseFloat(document.getElementById('group-rate-input').value);
   if (!rate || rate < 0) { toast('Enter valid rate', 'err'); return; }
-  saveGroupRate(window.currentGroupId, rate);
+  try {
+    await api('PUT', '/groups/' + window.currentGroupId + '/rate', { hourly_rate: rate });
+  } catch(e) {
+    saveGroupRate(window.currentGroupId, rate);
+  }
   toast('Rate saved', 'ok');
 }
 
@@ -291,6 +308,25 @@ function confirmDeleteHistory() {
   showModal('Clear Recent Activity?', 'This will delete all recent activity data for this group.', 'delete');
   document.getElementById('modal-confirm-btn').textContent = 'Delete';
   window._modalState = { type: 'delete', target: { type: 'history', id: window.currentGroupId } };
+}
+
+async function exportHistory(format) {
+  try {
+    const res = await fetch(COMMON.serverUrl.replace(/\/$/, '') + '/api/groups/' + window.currentGroupId + '/history/export?format=' + format, {
+      headers: { Authorization: 'Bearer ' + COMMON.token }
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = window.currentGroupName + '_history.' + (format === 'excel' ? 'csv' : format);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Downloaded', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 function escapeHtml(str) {

@@ -118,7 +118,14 @@ setupSocketHandlers(io);
 
 // ── Start Server ───────────────────────────────────────────────────────────────
 
-db._ready.then(() => {
+db._ready.then(async () => {
+  const existingGroups = await db.filter('groups', g => !g.hourly_rate);
+  for (const group of existingGroups) {
+    await db.update('groups', g => g.id === group.id, { hourly_rate: 5 });
+  }
+  if (existingGroups.length > 0) {
+    console.log(`Migrated ${existingGroups.length} groups with default hourly rate`);
+  }
   server.listen(PORT, () => {
     console.log(`\nGameZone Server running on port ${PORT}`);
     console.log(`   Mode: ${process.env.MONGODB_URI ? 'MongoDB (cloud)' : 'Local JSON file'}`);
