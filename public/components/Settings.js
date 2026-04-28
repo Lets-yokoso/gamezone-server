@@ -29,41 +29,9 @@ const Settings = {
                     <button class="btn btn-primary btn-sm" onclick="handleSaveGroupRate()" style="padding:8px 14px;font-size:11px">Save</button>
                   </div>
                 </div>
-                <div class="settings-row">
-                  <div><div class="settings-key">Daily History Flush Time</div><div class="settings-val">History cleared daily at this time (Singapore)</div></div>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <select id="flush-time-input" style="width:90px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none">
-                      <option value="00:00">00:00</option>
-                      <option value="01:00">01:00</option>
-                      <option value="02:00">02:00</option>
-                      <option value="03:00">03:00</option>
-                      <option value="04:00">04:00</option>
-                      <option value="05:00">05:00</option>
-                      <option value="06:00">06:00</option>
-                      <option value="07:00">07:00</option>
-                      <option value="08:00">08:00</option>
-                      <option value="09:00">09:00</option>
-                      <option value="10:00">10:00</option>
-                      <option value="11:00">11:00</option>
-                      <option value="12:00">12:00</option>
-                      <option value="13:00">13:00</option>
-                      <option value="14:00">14:00</option>
-                      <option value="15:00">15:00</option>
-                      <option value="16:00">16:00</option>
-                      <option value="17:00">17:00</option>
-                      <option value="18:00">18:00</option>
-                      <option value="19:00">19:00</option>
-                      <option value="20:00">20:00</option>
-                      <option value="21:00">21:00</option>
-                      <option value="22:00">22:00</option>
-                      <option value="23:00">23:00</option>
-                    </select>
-                    <button class="btn btn-primary btn-sm" onclick="handleSaveFlushTime()" style="padding:8px 14px;font-size:11px">Save</button>
-                  </div>
-                </div>
                 <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:var(--r);padding:12px;margin:12px 0;font-size:11px;color:var(--amber)">
-                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><i class="fa-solid fa-triangle-exclamation"></i><strong>History will be deleted</strong></div>
-                  <div>PC usage history is cleared daily at <strong id="flush-warning-time">05:00</strong> Singapore time. Download history before this time if you need to keep records.</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><i class="fa-solid fa-triangle-exclamation"></i><strong>History will be deleted daily</strong></div>
+                  <div>PC usage history is cleared daily at <strong id="flush-warning-time">03:30</strong> (Singapore time). Download history before this time to keep records.</div>
                 </div>
               </div>
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:12px">Administrators</div>
@@ -133,7 +101,6 @@ const Settings = {
     loadSettingsPCs();
     loadAdmins();
     applyPrefs();
-    loadFlushTime();
   },
   
   destroy() {
@@ -230,22 +197,4 @@ function confirmDeleteGroup() {
   showModal('Delete Group?', 'Delete "' + window.currentGroupName + '"\nAll PCs in this group will be removed.', 'delete');
   document.getElementById('modal-confirm-btn').textContent = 'Delete';
   window._modalState = { type: 'delete', target: { type: 'group', id: window.currentGroupId, name: window.currentGroupName } };
-}
-
-function handleSaveFlushTime() {
-  const flushTime = document.getElementById('flush-time-input').value;
-  if (!flushTime || !window.currentGroupId) return;
-  api('PUT', '/groups/' + window.currentGroupId + '/flush-time', { flush_time: flushTime }).then(() => {
-    document.getElementById('flush-warning-time').textContent = flushTime;
-    toast('Flush time updated', 'ok');
-  }).catch(e => toast(e.message, 'err'));
-}
-
-function loadFlushTime() {
-  if (!window.currentGroupId) return;
-  api('GET', '/groups/' + window.currentGroupId + '/flush-time').then(res => {
-    const flushTime = res.flush_time || '05:00';
-    document.getElementById('flush-time-input').value = flushTime;
-    document.getElementById('flush-warning-time').textContent = flushTime;
-  }).catch(() => {});
 }

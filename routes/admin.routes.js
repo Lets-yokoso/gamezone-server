@@ -126,3 +126,25 @@ router.delete('/accounts/:id', adminAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+router.get('/flush-time', adminAuth, async (req, res) => {
+  try {
+    const groups = await db.all('groups');
+    const flushTime = groups[0]?.flush_time || '03:30';
+    res.json({ flush_time: flushTime });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/flush-time', adminAuth, async (req, res) => {
+  try {
+    const { flush_time } = req.body;
+    if (!flush_time || !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(flush_time)) {
+      return res.status(400).json({ error: 'Invalid time format (HH:MM)' });
+    }
+    const groups = await db.all('groups');
+    for (const group of groups) {
+      await db.update('groups', g => g.id === group.id, { flush_time });
+    }
+    res.json({ success: true, flush_time });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});

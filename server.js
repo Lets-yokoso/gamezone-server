@@ -149,7 +149,7 @@ db._ready.then(async () => {
   }
   const flushTimeGroups = await db.filter('groups', g => !g.flush_time);
   for (const group of flushTimeGroups) {
-    await db.update('groups', g => g.id === group.id, { flush_time: '05:00' });
+    await db.update('groups', g => g.id === group.id, { flush_time: '03:30' });
   }
   if (flushTimeGroups.length > 0) {
     console.log(`Migrated ${flushTimeGroups.length} groups with default flush time`);

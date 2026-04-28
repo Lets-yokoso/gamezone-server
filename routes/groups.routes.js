@@ -20,7 +20,7 @@ router.post('/', [
   try {
     const { name } = req.body;
     const id = uuidv4();
-    const group = await db.insert('groups', { id, name, owner_id: req.user.id, created_at: Date.now(), hourly_rate: 5, flush_time: '05:00' });
+    const group = await db.insert('groups', { id, name, owner_id: req.user.id, created_at: Date.now(), hourly_rate: 5, flush_time: '03:30' });
     res.json(group);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -147,7 +147,7 @@ router.get('/:groupId/flush-time', [
     const { groupId } = req.params;
     if (!await canManageGroup(req.user.id, groupId)) return res.status(403).json({ error: 'Forbidden' });
     const group = await db.get('groups', g => g.id === groupId);
-    res.json({ flush_time: group?.flush_time || '05:00' });
+    res.json({ flush_time: group?.flush_time || '03:30' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
