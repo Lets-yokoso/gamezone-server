@@ -197,19 +197,19 @@ router.get('/:groupId/history/export', [
     if (format === 'text') {
       let text = `GameZone History Report - ${groupName}\n`;
       text += `${'='.repeat(50)}\n\n`;
-      text += `Hourly Rate: $${hourlyRate.toFixed(2)}\n\n`;
+      text += `Hourly Rate: Rs ${hourlyRate.toFixed(2)}\n\n`;
       text += '--- PC Details ---\n';
       text += `${'-'.repeat(40)}\n`;
       for (const row of rows) {
         const income = ((row.sessionMins + row.freeMins) / 60) * hourlyRate;
         text += `${row.pcName}\n`;
-        text += `  Session: ${row.sessionMins}m | Free Timer: ${row.freeMins}m | Income: $${income.toFixed(2)}\n`;
+        text += `  Session: ${row.sessionMins}m | Free Timer: ${row.freeMins}m | Income: Rs ${income.toFixed(2)}\n`;
       }
       text += `${'-'.repeat(40)}\n`;
       text += `\n--- Total Summary ---\n`;
       text += `Total Session: ${totalSessionMins}m (${(totalSessionMins/60).toFixed(1)} hrs)\n`;
       text += `Total Free Timer: ${totalFreeMins}m (${(totalFreeMins/60).toFixed(1)} hrs)\n`;
-      text += `Estimated Total Income: $${estimatedIncome.toFixed(2)}\n`;
+      text += `Estimated Total Income: Rs ${estimatedIncome.toFixed(2)}\n`;
       res.setHeader('Content-Type', 'text/plain');
       res.setHeader('Content-Disposition', `attachment; filename="${groupName.replace(/[^a-z0-9]/gi, '_')}_history.txt"`);
       res.send(text);

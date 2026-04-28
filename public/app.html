@@ -874,7 +874,7 @@
       if (calcMins < 1) { toast('Amount too low', 'err'); return; }
       const r = await api('POST', '/pcs/' + window.currentPcId + '/session/add-time', { minutes: calcMins, group_id: window.currentGroupId });
       if (r.stopwatch_start !== undefined) { window.pc.stopwatch_start = r.stopwatch_start; } else { window.pc.session_end = r.session_end; }
-      toast('Added: $' + amount.toFixed(2) + ' = ' + calcMins + 'm', 'ok');
+      toast('Added: Rs ' + amount.toFixed(2) + ' = ' + calcMins + 'm', 'ok');
     } else if (mins && mins > 0) {
       const r = await api('POST', '/pcs/' + window.currentPcId + '/session/add-time', { minutes: mins, group_id: window.currentGroupId });
       if (r.stopwatch_start !== undefined) { window.pc.stopwatch_start = r.stopwatch_start; } else { window.pc.session_end = r.session_end; }
@@ -1051,7 +1051,7 @@
         '</div>' +
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 8px">Or Pay by Amount</div>' +
         '<div class="input-row" style="margin-bottom:16px">' +
-          '<input type="text" id="session-amount" placeholder="Amount ($)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
+          '<input type="text" id="session-amount" placeholder="Amount (Rs)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
           '<input type="text" id="session-mins" placeholder="Minutes" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')">' +
           '<button class="btn btn-primary" onclick="startSessionByAmount()">Start</button>' +
         '</div>' +
@@ -1071,7 +1071,7 @@
         '</div>' +
         '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 8px">Add Time</div>' +
         '<div class="input-row" style="margin-bottom:20px">' +
-          '<input type="text" id="add-amount" placeholder="Amount ($)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
+          '<input type="text" id="add-amount" placeholder="Amount (Rs)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
           '<input type="text" id="add-mins" placeholder="Minutes" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')">' +
           '<button class="btn btn-primary" onclick="addTimeByAmount()">Add</button>' +
         '</div>' +
@@ -1274,7 +1274,7 @@
                   '<div class="settings-row" style="padding:15px 0;display:block"><div><div class="settings-key">Group Name</div><div id="s-name" class="settings-val">' + escapeHtml(group.name) + '</div></div>' +
                   '<div class="settings-row" style="padding:15px 0;display:block"><div style="width:100%"><div class="settings-key">Group ID</div><div id="s-id" class="mono-block">' + escapeHtml(group.id) + '</div><div style="font-size:10px;color:var(--t3);margin-top:5px">Copy into each PC\'s config.json</div></div>' +
                   '<div class="settings-row" style="padding:15px 0;display:block">' +
-                    '<div><div class="settings-key">Hourly Rate ($)</div><div class="settings-val">Price per hour for all PCs in this group</div></div>' +
+                    '<div><div class="settings-key">Hourly Rate (Rs)</div><div class="settings-val">Price per hour for all PCs in this group</div></div>' +
                     '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
                       '<input type="text" id="group-rate-input" placeholder="5.00" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')" style="width:80px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none">' +
                       '<button class="btn btn-primary btn-sm" onclick="handleSaveGroupRate()" style="padding:8px 14px;font-size:11px">Save</button>' +

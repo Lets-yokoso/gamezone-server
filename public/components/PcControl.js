@@ -189,7 +189,7 @@
         if (calcMins < 1) { toast('Amount too low', 'err'); return; }
         const r = await api('POST', '/pcs/' + window.currentPcId + '/session/add-time', { minutes: calcMins, group_id: window.currentGroupId });
         if (r.stopwatch_start !== undefined) { window.pc.stopwatch_start = r.stopwatch_start; } else { window.pc.session_end = r.session_end; }
-        toast('Added: $' + amount.toFixed(2) + ' = ' + calcMins + 'm', 'ok');
+        toast('Added: Rs ' + amount.toFixed(2) + ' = ' + calcMins + 'm', 'ok');
       } catch { toast('Failed to add time', 'err'); }
     } else if (mins && mins > 0) {
       try {
@@ -463,7 +463,7 @@
       '</div>' +
       '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 8px">Or Pay by Amount</div>' +
       '<div class="input-row" style="margin-bottom:16px">' +
-        '<input type="text" id="session-amount" placeholder="Amount ($)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
+        '<input type="text" id="session-amount" placeholder="Amount (Rs)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
         '<input type="text" id="session-mins" placeholder="Minutes" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')">' +
         '<button class="btn btn-primary" onclick="PcControl.startSessionByAmount()">Start</button>' +
       '</div>' +
@@ -483,7 +483,7 @@
       '</div>' +
       '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:16px 0 8px">Add Time</div>' +
       '<div class="input-row" style="margin-bottom:20px">' +
-        '<input type="text" id="add-amount" placeholder="Amount ($)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
+        '<input type="text" id="add-amount" placeholder="Amount (Rs)" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,\'\')">' +
         '<input type="text" id="add-mins" placeholder="Minutes" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')">' +
         '<button class="btn btn-primary" onclick="PcControl.addTimeByAmount()">Add</button>' +
       '</div>' +

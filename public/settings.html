@@ -38,7 +38,7 @@
             <div class="settings-row"><div><div class="settings-key">Group Name</div><div id="s-name" class="settings-val"></div></div></div>
             <div class="settings-row"><div style="width:100%"><div class="settings-key">Group ID</div><div id="s-id" class="mono-block"></div><div style="font-size:10px;color:var(--t3);margin-top:5px">Copy into each PC's config.json</div></div></div>
             <div class="settings-row">
-              <div><div class="settings-key">Hourly Rate ($)</div><div class="settings-val">Price per hour for all PCs in this group</div></div>
+              <div><div class="settings-key">Hourly Rate (Rs)</div><div class="settings-val">Price per hour for all PCs in this group</div></div>
               <div style="display:flex;align-items:center;gap:8px">
                 <input type="text" id="group-rate-input" placeholder="5.00" inputmode="decimal" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9.]/g,'')" style="width:80px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--t1);outline:none">
                 <button class="btn btn-primary btn-sm" onclick="handleSaveGroupRate()" style="padding:8px 14px;font-size:11px">Save</button>
