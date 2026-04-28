@@ -1354,8 +1354,13 @@
   }
 
   window.addEventListener('load', async () => {
+    const path = window.location.pathname;
+    const isLoginPage = path === '/app' || path === '/app/login';
+    
     if (!COMMON.token || !COMMON.user || !COMMON.serverUrl) {
-      window.location.href = '/app/login';
+      if (!isLoginPage) {
+        window.location.href = '/app/login';
+      }
       return;
     }
     const data = await fetchMe();

@@ -128,8 +128,13 @@ window.currentGroupName = null;
 window.pcs = [];
 
 window.addEventListener('load', () => {
+  const path = window.location.pathname;
+  const isSettingsPage = path === '/settings';
+  
   if (!COMMON.token || !COMMON.user || !COMMON.serverUrl) {
-    window.location.href = '/app/login';
+    if (!isSettingsPage || true) {
+      window.location.href = '/app/login';
+    }
     return;
   }
   const group = JSON.parse(sessionStorage.getItem('gz_activeGroup') || 'null');
