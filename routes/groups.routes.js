@@ -20,7 +20,7 @@ router.post('/', [
   try {
     const { name } = req.body;
     const id = uuidv4();
-    const group = await db.insert('groups', { id, name, owner_id: req.user.id, created_at: Date.now(), hourly_rate: 5, flush_time: '03:30' });
+    const group = await db.insert('groups', { id, name, owner_id: req.user.id, created_at: Date.now(), hourly_rate: 5, flush_time: '03:30', group_suffix: Math.random().toString(36).substr(2, 5) });
     res.json(group);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -163,12 +163,19 @@ router.get('/:groupId/rate', [
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+function roundDownTo5(minutes) {
+  return Math.floor(minutes / 5) * 5;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 router.get('/:groupId/history/export', [
   param('groupId').isUUID().withMessage('Invalid group ID'),
 ], validate, async (req, res) => {
   try {
     const { groupId } = req.params;
-    const format = req.query.format || 'text';
     if (!await canManageGroup(req.user.id, groupId)) return res.status(403).json({ error: 'Forbidden' });
     const group = await db.get('groups', g => g.id === groupId);
     const hourlyRate = group?.hourly_rate || 5;
@@ -176,55 +183,80 @@ router.get('/:groupId/history/export', [
     const rows = [];
     let totalSessionMins = 0;
     let totalFreeMins = 0;
+    let totalRoundedDown = 0;
+    let totalRoundedSession = 0;
+    let totalRoundedFree = 0;
     for (const pc of pcs) {
       const pcHistory = pc.time_history || [];
       const parentEntries = pcHistory.filter(h => h.type === 'session' && (!h.parentId || h.parentId === null));
       let pcSessionMins = 0;
       let pcFreeMins = 0;
+      let pcRoundedDown = 0;
+      let pcSessionRounded = 0;
+      let pcFreeRounded = 0;
       for (const entry of parentEntries) {
+        const entryMins = entry.mins || 0;
+        const rounded = roundDownTo5(entryMins);
+        const lost = entryMins - rounded;
         if (entry.mode === 'free') {
-          pcFreeMins += entry.mins || 0;
+          pcFreeMins += entryMins;
+          pcFreeRounded += rounded;
+          pcRoundedDown += lost;
         } else {
-          pcSessionMins += entry.mins || 0;
+          pcSessionMins += entryMins;
+          pcSessionRounded += rounded;
+          pcRoundedDown += lost;
         }
       }
-      rows.push({ pcName: pc.name, sessionMins: pcSessionMins, freeMins: pcFreeMins });
+      const pcTotalRounded = pcSessionRounded + pcFreeRounded;
+      const pcIncome = (pcTotalRounded / 60) * hourlyRate;
+      rows.push({ pcName: pc.name, sessionMins: pcSessionMins, freeMins: pcFreeMins, roundedDownMins: pcRoundedDown, income: pcIncome });
       totalSessionMins += pcSessionMins;
       totalFreeMins += pcFreeMins;
+      totalRoundedDown += pcRoundedDown;
+      totalRoundedSession += pcSessionRounded;
+      totalRoundedFree += pcFreeRounded;
     }
-    const estimatedIncome = ((totalSessionMins + totalFreeMins) / 60) * hourlyRate;
+    const totalRoundedMins = totalRoundedSession + totalRoundedFree;
+    const estimatedIncome = (totalRoundedMins / 60) * hourlyRate;
     const groupName = group?.name || 'Unknown';
-    if (format === 'text') {
-      let text = `GameZone History Report - ${groupName}\n`;
-      text += `${'='.repeat(50)}\n\n`;
-      text += `Hourly Rate: Rs ${hourlyRate.toFixed(2)}\n\n`;
-      text += '--- PC Details ---\n';
-      text += `${'-'.repeat(40)}\n`;
-      for (const row of rows) {
-        const income = ((row.sessionMins + row.freeMins) / 60) * hourlyRate;
-        text += `${row.pcName}\n`;
-        text += `  Session: ${row.sessionMins}m | Free Timer: ${row.freeMins}m | Income: Rs ${income.toFixed(2)}\n`;
-      }
-      text += `${'-'.repeat(40)}\n`;
-      text += `\n--- Total Summary ---\n`;
-      text += `Total Session: ${totalSessionMins}m (${(totalSessionMins/60).toFixed(1)} hrs)\n`;
-      text += `Total Free Timer: ${totalFreeMins}m (${(totalFreeMins/60).toFixed(1)} hrs)\n`;
-      text += `Estimated Total Income: Rs ${estimatedIncome.toFixed(2)}\n`;
-      res.setHeader('Content-Type', 'text/plain');
-      res.setHeader('Content-Disposition', `attachment; filename="${groupName.replace(/[^a-z0-9]/gi, '_')}_history.txt"`);
-      res.send(text);
-    } else if (format === 'excel') {
-      let csv = 'PC Name,Session (mins),Free Timer (mins),Income,Total Mins\n';
-      for (const row of rows) {
-        const income = ((row.sessionMins + row.freeMins) / 60) * hourlyRate;
-        csv += `"${row.pcName}",${row.sessionMins},${row.freeMins},${income.toFixed(2)},${row.sessionMins + row.freeMins}\n`;
-      }
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="${groupName.replace(/[^a-z0-9]/gi, '_')}_history.csv"`);
-      res.send(csv);
-    } else {
-      res.status(400).json({ error: 'Invalid format. Use text or excel.' });
-    }
+    const today = new Date().toISOString().split('T')[0];
+    const safeName = groupName.replace(/[^a-z0-9]/gi, '_');
+    const html = '<!DOCTYPE html>\n' +
+      '<html>\n<head>\n' +
+      '<meta charset="UTF-8">\n' +
+      '<title>GameZone History - ' + escapeHtml(groupName) + '</title>\n' +
+      '<style>\n' +
+      'body { font-size: 15px; font-family: "Segoe UI", Arial, sans-serif; padding: 30px; color: #333; background: #fff; line-height: 1.8; }\n' +
+      'h2 { font-size: 22px; margin-bottom: 10px; color: #111; }\n' +
+      '.meta { color: #666; font-size: 13px; margin-bottom: 30px; }\n' +
+      'table { border-collapse: collapse; width: 100%; margin: 20px 0; }\n' +
+      'th { background: #f0f0f0; padding: 12px 15px; text-align: left; border: 1px solid #ddd; font-weight: 600; }\n' +
+      'td { padding: 10px 15px; border: 1px solid #ddd; }\n' +
+      'tr:nth-child(even) { background: #f9f9f9; }\n' +
+      '.summary { margin-top: 30px; padding: 20px; background: #f8f8f8; border-radius: 8px; border: 1px solid #ddd; }\n' +
+      '.summary p { margin: 5px 0; }\n' +
+      '.total { font-size: 18px; font-weight: 700; color: #111; margin-top: 10px; }\n' +
+      '</style>\n' +
+      '</head>\n<body>\n' +
+      '<h2>GameZone History Report - ' + escapeHtml(groupName) + '</h2>\n' +
+      '<div class="meta">Hourly Rate: Rs ' + hourlyRate.toFixed(2) + ' | Date: ' + today + '</div>\n' +
+      '<table>\n' +
+      '<tr><th>PC Name</th><th>Session Time (min)</th><th>Free Timer (min)</th><th>Rounded Down (min)</th><th>Income (Rs)</th></tr>\n' +
+      rows.map(row =>
+        '<tr><td>' + escapeHtml(row.pcName) + '</td><td>' + row.sessionMins + '</td><td>' + row.freeMins + '</td><td>' + row.roundedDownMins + '</td><td>Rs ' + row.income.toFixed(2) + '</td></tr>'
+      ).join('\n') +
+      '\n</table>\n' +
+      '<div class="summary">\n' +
+      '<p>Total Session Time: ' + totalSessionMins + 'm (' + (totalSessionMins / 60).toFixed(1) + ' hrs)</p>\n' +
+      '<p>Total Free Timer: ' + totalFreeMins + 'm (' + (totalFreeMins / 60).toFixed(1) + ' hrs)</p>\n' +
+      '<p>Total Rounded Down: ' + totalRoundedDown + 'm</p>\n' +
+      '<p class="total">Estimated Total Income: Rs ' + estimatedIncome.toFixed(2) + '</p>\n' +
+      '</div>\n' +
+      '</body>\n</html>';
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', 'attachment; filename="' + safeName + '_history_' + today + '.txt"');
+    res.send(html);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

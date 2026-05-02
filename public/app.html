@@ -102,10 +102,27 @@
       window.location.href = '/app/groups';
       return;
     }
+    const pathParts = view.split('/');
+    if (pathParts[0] === 'dashboard' && pathParts[1]) {
+      const suffix = pathParts[1];
+      let groups = JSON.parse(sessionStorage.getItem('gz_groups') || '[]');
+      let group = groups.find(g => g.group_suffix === suffix);
+      if (!group) {
+        try {
+          groups = await api('GET', '/groups');
+          sessionStorage.setItem('gz_groups', JSON.stringify(groups));
+          group = groups.find(g => g.group_suffix === suffix);
+        } catch(e) {}
+      }
+      if (!group) { window.location.href = '/app/groups'; return; }
+      sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
+      window.currentGroupId = group.id;
+      window.currentGroupName = group.name;
+    }
     if (currentView === view) return;
     currentView = view;
     document.getElementById('app').innerHTML = '';
-    switch(view) {
+    switch(view.split('/')[0]) {
       case 'login': renderLogin(); break;
       case 'groups': if (window.Groups) window.Groups.init(); else renderGroups(); break;
       case 'dashboard': if (window.Dashboard) window.Dashboard.start(); else renderDashboard(); break;
@@ -431,7 +448,7 @@
     sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
     window.currentGroupId = group.id;
     window.currentGroupName = group.name;
-    navigateTo('dashboard');
+    navigateTo('dashboard/' + (group.group_suffix || ''));
   };
 
   window.createGroup = async function() {
@@ -547,8 +564,9 @@
     try {
       const groups = JSON.parse(sessionStorage.getItem('gz_groups') || '[]');
       if (!groups.length) { el.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-p">No groups</div></div>'; return; }
+      const currentSuffix = (window.currentGroupId && groups.find(g => g.id === window.currentGroupId))?.group_suffix || '';
       el.innerHTML = groups.map(g =>
-        '<div class="group-item" onclick="switchGroup(\'' + g.id + '\')" style="' + (g.id === window.currentGroupId ? 'background:var(--s2)' : '') + '">' +
+        '<div class="group-item" onclick="switchGroup(\'' + g.id + '\')" style="' + (g.group_suffix === currentSuffix ? 'background:var(--s2)' : '') + '">' +
         '<div class="group-item-left">' +
         '<div class="group-item-icon"><i class="fa-solid fa-network-wired"></i></div>' +
         '<div><div class="group-item-name">' + escapeHtml(g.name) + '</div></div>' +
@@ -565,7 +583,7 @@
         sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
         window.currentGroupId = group.id;
         window.currentGroupName = group.name;
-        navigateTo('dashboard');
+        navigateTo('dashboard/' + group.group_suffix);
       }
     }).catch(() => navigateTo('groups'));
   };
@@ -1165,8 +1183,9 @@
     try {
       const groups = JSON.parse(sessionStorage.getItem('gz_groups') || '[]');
       if (!groups.length) { el.innerHTML = '<div class="empty" style="padding:20px"><div class="empty-p">No groups</div></div>'; return; }
+      const currentSuffix = (window.currentGroupId && groups.find(g => g.id === window.currentGroupId))?.group_suffix || '';
       el.innerHTML = groups.map(g =>
-        '<div class="group-item" onclick="switchGroup(\'' + g.id + '\')" style="' + (g.id === window.currentGroupId ? 'background:var(--s2)' : '') + '">' +
+        '<div class="group-item" onclick="switchGroup(\'' + g.id + '\')" style="' + (g.group_suffix === currentSuffix ? 'background:var(--s2)' : '') + '">' +
         '<div class="group-item-left">' +
         '<div class="group-item-icon"><i class="fa-solid fa-network-wired"></i></div>' +
         '<div><div class="group-item-name">' + escapeHtml(g.name) + '</div></div>' +

@@ -154,6 +154,14 @@ db._ready.then(async () => {
   if (flushTimeGroups.length > 0) {
     console.log(`Migrated ${flushTimeGroups.length} groups with default flush time`);
   }
+  const suffixGroups = await db.filter('groups', g => !g.group_suffix);
+  for (const group of suffixGroups) {
+    const suffix = Math.random().toString(36).substr(2, 5);
+    await db.update('groups', g => g.id === group.id, { group_suffix: suffix });
+  }
+  if (suffixGroups.length > 0) {
+    console.log(`Migrated ${suffixGroups.length} groups with unique URL suffixes`);
+  }
   await loadRateCache();
   global.getCachedRate = getCachedRate;
   global.setCachedRate = setCachedRate;
