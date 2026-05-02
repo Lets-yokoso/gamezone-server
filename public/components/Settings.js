@@ -12,7 +12,7 @@ const Settings = {
     return `
       <div class="main-col">
         <div class="topbar">
-          <button class="back-btn" onclick="navigateTo('dashboard')"><i class="fa-solid fa-chevron-left"></i></button>
+          <button class="back-btn" onclick="navigateTo('dashboard/' + (JSON.parse(sessionStorage.getItem('gz_activeGroup')||'null')?.group_suffix||''))"><i class="fa-solid fa-chevron-left"></i></button>
           <div class="topbar-title">Settings</div>
           <div style="width:34px"></div>
         </div>

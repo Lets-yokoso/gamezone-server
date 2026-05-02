@@ -376,7 +376,7 @@
   PcControl.start = function() {
     const pc = JSON.parse(sessionStorage.getItem('gz_activePc') || 'null');
     const groupId = sessionStorage.getItem('gz_activeGroupId');
-    if (!pc || !groupId) { navigateTo('dashboard'); return; }
+    if (!pc || !groupId) { const g = JSON.parse(sessionStorage.getItem('gz_activeGroup') || 'null'); navigateTo('dashboard/' + (g?.group_suffix || '')); return; }
     window.currentPcId = pc.id;
     window.currentPcName = pc.name;
     window.currentGroupId = groupId;

@@ -222,41 +222,60 @@ router.get('/:groupId/history/export', [
     const groupName = group?.name || 'Unknown';
     const today = new Date().toISOString().split('T')[0];
     const safeName = groupName.replace(/[^a-z0-9]/gi, '_');
-    const html = '<!DOCTYPE html>\n' +
-      '<html>\n<head>\n' +
-      '<meta charset="UTF-8">\n' +
-      '<title>GameZone History - ' + escapeHtml(groupName) + '</title>\n' +
-      '<style>\n' +
-      'body { font-size: 15px; font-family: "Segoe UI", Arial, sans-serif; padding: 30px; color: #333; background: #fff; line-height: 1.8; }\n' +
-      'h2 { font-size: 22px; margin-bottom: 10px; color: #111; }\n' +
-      '.meta { color: #666; font-size: 13px; margin-bottom: 30px; }\n' +
-      'table { border-collapse: collapse; width: 100%; margin: 20px 0; }\n' +
-      'th { background: #f0f0f0; padding: 12px 15px; text-align: left; border: 1px solid #ddd; font-weight: 600; }\n' +
-      'td { padding: 10px 15px; border: 1px solid #ddd; }\n' +
-      'tr:nth-child(even) { background: #f9f9f9; }\n' +
-      '.summary { margin-top: 30px; padding: 20px; background: #f8f8f8; border-radius: 8px; border: 1px solid #ddd; }\n' +
-      '.summary p { margin: 5px 0; }\n' +
-      '.total { font-size: 18px; font-weight: 700; color: #111; margin-top: 10px; }\n' +
-      '</style>\n' +
-      '</head>\n<body>\n' +
-      '<h2>GameZone History Report - ' + escapeHtml(groupName) + '</h2>\n' +
-      '<div class="meta">Hourly Rate: Rs ' + hourlyRate.toFixed(2) + ' | Date: ' + today + '</div>\n' +
-      '<table>\n' +
-      '<tr><th>PC Name</th><th>Session Time (min)</th><th>Free Timer (min)</th><th>Rounded Down (min)</th><th>Income (Rs)</th></tr>\n' +
-      rows.map(row =>
-        '<tr><td>' + escapeHtml(row.pcName) + '</td><td>' + row.sessionMins + '</td><td>' + row.freeMins + '</td><td>' + row.roundedDownMins + '</td><td>Rs ' + row.income.toFixed(2) + '</td></tr>'
-      ).join('\n') +
-      '\n</table>\n' +
-      '<div class="summary">\n' +
-      '<p>Total Session Time: ' + totalSessionMins + 'm (' + (totalSessionMins / 60).toFixed(1) + ' hrs)</p>\n' +
-      '<p>Total Free Timer: ' + totalFreeMins + 'm (' + (totalFreeMins / 60).toFixed(1) + ' hrs)</p>\n' +
-      '<p>Total Rounded Down: ' + totalRoundedDown + 'm</p>\n' +
-      '<p class="total">Estimated Total Income: Rs ' + estimatedIncome.toFixed(2) + '</p>\n' +
-      '</div>\n' +
-      '</body>\n</html>';
-    res.setHeader('Content-Type', 'text/html');
-    res.setHeader('Content-Disposition', 'attachment; filename="' + safeName + '_history_' + today + '.txt"');
-    res.send(html);
+    const ua = req.headers['user-agent'] || '';
+    const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(ua);
+    
+    if (isMobile) {
+      const html = '<!DOCTYPE html>\n' +
+        '<html>\n<head>\n' +
+        '<meta charset="UTF-8">\n' +
+        '<title>GameZone History - ' + escapeHtml(groupName) + '</title>\n' +
+        '<style>\n' +
+        'body { font-size: 15px; font-family: "Segoe UI", Arial, sans-serif; padding: 30px; color: #333; background: #fff; line-height: 1.8; }\n' +
+        'h2 { font-size: 22px; margin-bottom: 10px; color: #111; }\n' +
+        '.meta { color: #666; font-size: 13px; margin-bottom: 30px; }\n' +
+        'table { border-collapse: collapse; width: 100%; margin: 20px 0; }\n' +
+        'th { background: #f0f0f0; padding: 12px 15px; text-align: left; border: 1px solid #ddd; font-weight: 600; }\n' +
+        'td { padding: 10px 15px; border: 1px solid #ddd; }\n' +
+        'tr:nth-child(even) { background: #f9f9f9; }\n' +
+        '.summary { margin-top: 30px; padding: 20px; background: #f8f8f8; border-radius: 8px; border: 1px solid #ddd; }\n' +
+        '.summary p { margin: 5px 0; }\n' +
+        '.total { font-size: 18px; font-weight: 700; color: #111; margin-top: 10px; }\n' +
+        '</style>\n' +
+        '</head>\n<body>\n' +
+        '<h2>GameZone History Report - ' + escapeHtml(groupName) + '</h2>\n' +
+        '<div class="meta">Hourly Rate: Rs ' + hourlyRate.toFixed(2) + ' | Date: ' + today + '</div>\n' +
+        '<table>\n' +
+        '<tr><th>PC Name</th><th>Session Time (min)</th><th>Free Timer (min)</th><th>Rounded Down (min)</th><th>Income (Rs)</th></tr>\n' +
+        rows.map(row =>
+          '<tr><td>' + escapeHtml(row.pcName) + '</td><td>' + row.sessionMins + '</td><td>' + row.freeMins + '</td><td>' + row.roundedDownMins + '</td><td>Rs ' + row.income.toFixed(2) + '</td></tr>'
+        ).join('\n') +
+        '\n</table>\n' +
+        '<div class="summary">\n' +
+        '<p>Total Session Time: ' + totalSessionMins + 'm (' + (totalSessionMins / 60).toFixed(1) + ' hrs)</p>\n' +
+        '<p>Total Free Timer: ' + totalFreeMins + 'm (' + (totalFreeMins / 60).toFixed(1) + ' hrs)</p>\n' +
+        '<p>Total Rounded Down: ' + totalRoundedDown + 'm</p>\n' +
+        '<p class="total">Estimated Total Income: Rs ' + estimatedIncome.toFixed(2) + '</p>\n' +
+        '</div>\n' +
+        '</body>\n</html>';
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', 'attachment; filename="' + safeName + '_history_' + today + '.txt"');
+      res.send(html);
+    } else {
+      const colW = { pc: 14, session: 15, free: 16, rounded: 19, income: 12 };
+      const pad = (str, len) => String(str).padEnd(len);
+      let text = 'GameZone History Report - ' + groupName + '\n';
+      text += 'Hourly Rate: Rs ' + hourlyRate.toFixed(2) + ' | Date: ' + today + '\n\n';
+      text += pad('PC Name', colW.pc) + ' | ' + pad('Session (min)', colW.session) + ' | ' + pad('Free Timer (min)', colW.free) + ' | ' + pad('Rounded Down (min)', colW.rounded) + ' | ' + pad('Income (Rs)', colW.income) + '\n';
+      for (const row of rows) {
+        text += pad(row.pcName, colW.pc) + ' | ' + pad(row.sessionMins, colW.session) + ' | ' + pad(row.freeMins, colW.free) + ' | ' + pad(row.roundedDownMins, colW.rounded) + ' | ' + pad(row.income.toFixed(2), colW.income) + '\n';
+      }
+      text += '\nTotal Session: ' + totalSessionMins + 'm | Total Free: ' + totalFreeMins + 'm | Total Rounded Down: ' + totalRoundedDown + 'm\n';
+      text += 'Estimated Total Income: Rs ' + estimatedIncome.toFixed(2) + '\n';
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', 'attachment; filename="' + safeName + '_history_' + today + '.txt"');
+      res.send(text);
+    }
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

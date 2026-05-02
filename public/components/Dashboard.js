@@ -122,7 +122,7 @@
         sessionStorage.setItem('gz_activeGroup', JSON.stringify(group));
         window.currentGroupId = group.id;
         window.currentGroupName = group.name;
-        navigateTo('dashboard');
+        navigateTo('dashboard/' + (group.group_suffix || ''));
       }
     }).catch(() => navigateTo('groups'));
   };
